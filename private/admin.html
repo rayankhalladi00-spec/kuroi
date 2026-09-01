@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administration — Kuroi</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="nav"></div>
+
+  <div class="admin-wrap">
+    <h1 style="margin:18px 0 22px">Administration</h1>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="users">Utilisateurs</button>
+      <button class="tab" data-tab="content">Contenu</button>
+      <button class="tab" data-tab="logs">Journal</button>
+    </div>
+
+    <!-- Utilisateurs -->
+    <section id="tab-users">
+      <div class="toolbar">
+        <input id="userSearch" placeholder="Rechercher un pseudo ou un e-mail…">
+        <button class="btn btn-primary btn-sm" id="newUserBtn">+ Nouvel utilisateur</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Pseudo</th><th>E-mail</th><th>Rôle</th>
+              <th>Statut</th><th>Inscrit le</th><th>Dernière connexion</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Contenu -->
+    <section id="tab-content" hidden>
+      <div class="toolbar">
+        <button class="btn btn-primary btn-sm" id="newContentBtn">+ Ajouter un titre</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Type</th><th>Titre</th><th>Année</th>
+              <th>Genre</th><th>À la une</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="contentBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Journal -->
+    <section id="tab-logs" hidden>
+      <ul class="log-list" id="logsBody"></ul>
+    </section>
+  </div>
+
+  <!-- Fenêtre modale générique -->
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <h3 id="modalTitle"></h3>
+      <div id="modalBody"></div>
+      <div class="modal-actions" id="modalActions"></div>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

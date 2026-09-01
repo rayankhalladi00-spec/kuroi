@@ -1,0 +1,30 @@
+[Unit]
+Description=Kuroi — plateforme de streaming et de jeux
+After=network.target
+
+[Service]
+Type=simple
+User=kuroi
+Group=kuroi
+WorkingDirectory=/opt/kuroi
+EnvironmentFile=/opt/kuroi/.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+
+# Durcissement
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/kuroi/data
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kuroi
+
+[Install]
+WantedBy=multi-user.target

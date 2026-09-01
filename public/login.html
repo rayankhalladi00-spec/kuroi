@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connexion — Kuroi</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <h1 style="color:var(--accent)">KUROI</h1>
+      <p class="sub" id="subtitle">Connecte-toi pour accéder au catalogue.</p>
+
+      <div class="msg" id="msg"></div>
+
+      <!-- Connexion -->
+      <form id="loginForm">
+        <div class="field">
+          <label for="identifier">Pseudo ou e-mail</label>
+          <input id="identifier" name="identifier" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="password">Mot de passe</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" type="submit">Se connecter</button>
+        <div class="switch-line">Pas encore de compte ? <a href="#" id="toRegister">Créer un compte</a></div>
+      </form>
+
+      <!-- Inscription -->
+      <form id="registerForm" hidden>
+        <div class="field">
+          <label for="rUsername">Pseudo</label>
+          <input id="rUsername" name="username" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="rEmail">Adresse e-mail</label>
+          <input id="rEmail" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="rPassword">Mot de passe (8 caractères minimum)</label>
+          <input id="rPassword" name="password" type="password" autocomplete="new-password" required minlength="8">
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" type="submit">Créer mon compte</button>
+        <div class="switch-line">Déjà inscrit ? <a href="#" id="toLogin">Se connecter</a></div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/login.js"></script>
+</body>
+</html>

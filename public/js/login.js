@@ -42,7 +42,8 @@ loginForm.addEventListener('submit', async (e) => {
     await api('/api/auth/login', {
       method: 'POST',
       body: {
-        identifier: document.getElementById('identifier').value,
+        username: document.getElementById('username').value,
+        email: document.getElementById('email').value,
         password: document.getElementById('password').value,
       },
     });

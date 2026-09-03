@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+/* Inter pour toute l'interface ; Bebas Neue uniquement pour le logotype. */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ===========================================================================
    Jetons de couleur.
@@ -169,10 +170,14 @@ h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; }
 }
 .nav.scrolled { border-bottom-color: var(--line); }
 
+/* Le logotype seul change de police : condense et tout en capitales, il se
+   distingue du reste de l'interface sans en alourdir le chargement. */
 .logo {
-  font-weight: 800;
-  font-size: 25px;
-  letter-spacing: -.045em;
+  font-family: 'Bebas Neue', 'Inter', sans-serif;
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: .06em;
   color: var(--accent);
   transition: opacity var(--fast) var(--ease);
 }
@@ -548,7 +553,15 @@ textarea { resize: vertical; min-height: 84px; line-height: 1.5; }
   box-shadow: var(--shadow);
   animation: pop-in var(--slow) var(--ease) both;
 }
-.auth-card h1 { margin: 0 0 6px; font-size: 30px; font-weight: 800; letter-spacing: -.045em; color: var(--accent); }
+.auth-card h1 {
+  margin: 0 0 6px;
+  font-family: 'Bebas Neue', 'Inter', sans-serif;
+  font-weight: 400;
+  font-size: 42px;
+  line-height: 1;
+  letter-spacing: .07em;
+  color: var(--accent);
+}
 .auth-card .sub { color: var(--text-muted); font-size: 14px; margin: 0 0 26px; }
 .switch-line { text-align: center; font-size: 13px; color: var(--text-muted); margin-top: 20px; }
 .switch-line a { color: var(--text); font-weight: 600; }

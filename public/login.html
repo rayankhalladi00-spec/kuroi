@@ -4,13 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Connexion — Kuroi</title>
-  <link rel="stylesheet" href="/css/style.css?v=2c7a89c1">
-  <script src="/js/theme.js?v=2c7a89c1"></script>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css?v=6a7a6033">
+  <script src="/js/theme.js?v=6a7a6033"></script>
 </head>
 <body>
   <div class="auth-wrap">
     <div class="auth-card">
-      <h1 style="color:var(--accent)">KUROI</h1>
+      <h1>KUROI</h1>
       <p class="sub" id="subtitle">Connecte-toi pour accéder au catalogue.</p>
 
       <div class="msg" id="msg"></div>
@@ -18,8 +19,12 @@
       <!-- Connexion -->
       <form id="loginForm">
         <div class="field">
-          <label for="identifier">Pseudo ou e-mail</label>
-          <input id="identifier" name="identifier" autocomplete="username" required>
+          <label for="username">Pseudo</label>
+          <input id="username" name="username" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="email">Adresse e-mail</label>
+          <input id="email" name="email" type="email" autocomplete="email" required>
         </div>
         <div class="field">
           <label for="password">Mot de passe</label>
@@ -49,7 +54,7 @@
     </div>
   </div>
 
-  <script src="/js/common.js?v=2c7a89c1"></script>
-  <script src="/js/login.js?v=2c7a89c1"></script>
+  <script src="/js/common.js?v=6a7a6033"></script>
+  <script src="/js/login.js?v=6a7a6033"></script>
 </body>
 </html>

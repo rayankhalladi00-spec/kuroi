@@ -83,6 +83,35 @@ CREATE TABLE IF NOT EXISTS files (
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Boite a idees : les membres proposent des titres, tout le monde vote.
+CREATE TABLE IF NOT EXISTS suggestions (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  author     TEXT NOT NULL,               -- pseudo fige : survit a la suppression du compte
+  type       TEXT NOT NULL CHECK (type IN ('film','serie','jeu')),
+  title      TEXT NOT NULL,
+  note       TEXT,
+  status     TEXT NOT NULL DEFAULT 'nouveau'
+             CHECK (status IN ('nouveau','prevu','ajoute','refuse')),
+  admin_note TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS suggestion_votes (
+  suggestion_id INTEGER NOT NULL REFERENCES suggestions(id) ON DELETE CASCADE,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (suggestion_id, user_id)
+);
+
+-- Favoris : « ma liste » de chaque membre.
+CREATE TABLE IF NOT EXISTS favorites (
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content_id INTEGER NOT NULL REFERENCES content(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, content_id)
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
   sid     TEXT PRIMARY KEY,
   expires INTEGER NOT NULL,
@@ -90,6 +119,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_files_content ON files(content_id);
+CREATE INDEX IF NOT EXISTS idx_suggestions_status ON suggestions(status, id DESC);
+CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_content_type ON content(type);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires);

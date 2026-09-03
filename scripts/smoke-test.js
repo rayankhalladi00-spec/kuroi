@@ -76,6 +76,9 @@ async function waitForServer(proc) {
         ADMIN_USERNAME: 'root_admin',
         ADMIN_EMAIL: 'admin@test.local',
         ADMIN_PASSWORD: 'MotDePasseAdmin123',
+        // La suite fait bien plus de 10 connexions légitimes ; le seuil réel
+        // est vérifié pour de vrai en fin de parcours.
+        LOGIN_RATE_LIMIT: '60',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     }
@@ -344,6 +347,77 @@ async function waitForServer(proc) {
     check('carol ne peut plus se connecter',
       (await client()('POST', '/api/auth/login', { identifier: 'carol', password: 'peu importe' })).status === 401);
 
+    console.log('\n— Boîte à idées');
+    {
+      check('anonyme rejeté', (await anon('GET', '/api/suggestions')).status === 401);
+
+      r = await alice('POST', '/api/suggestions', {
+        type: 'film',
+        title: 'Un film très attendu',
+        note: 'Version longue si possible',
+      });
+      check('proposition créée', r.status === 200, JSON.stringify(r.data));
+      check("l'auteur vote pour la sienne", r.data.suggestion.votes === 1 && r.data.suggestion.voted === 1);
+      const ideaId = r.data.suggestion.id;
+
+      check('doublon refusé',
+        (await admin('POST', '/api/suggestions', { type: 'film', title: 'un FILM très attendu' })).status === 409);
+      check('type invalide refusé',
+        (await alice('POST', '/api/suggestions', { type: 'livre', title: 'Test' })).status === 400);
+      check('titre trop court refusé',
+        (await alice('POST', '/api/suggestions', { type: 'film', title: 'x' })).status === 400);
+
+      r = await admin('POST', `/api/suggestions/${ideaId}/vote`);
+      check('vote d’un autre membre', r.data.suggestion.votes === 2);
+      r = await admin('POST', `/api/suggestions/${ideaId}/vote`);
+      check('deuxième clic retire le vote', r.data.suggestion.votes === 1);
+
+      r = await alice('GET', '/api/suggestions');
+      check('liste visible par les membres', r.status === 200 && r.data.suggestions.length === 1);
+
+      check('un membre ne change pas le statut',
+        (await alice('POST', `/api/suggestions/${ideaId}/status`, { status: 'ajoute' })).status === 403);
+      r = await admin('POST', `/api/suggestions/${ideaId}/status`, {
+        status: 'prevu',
+        admin_note: 'Prévu pour le mois prochain',
+      });
+      check('admin change le statut', r.status === 200 && r.data.suggestion.status === 'prevu');
+      check('statut invalide refusé',
+        (await admin('POST', `/api/suggestions/${ideaId}/status`, { status: 'bidon' })).status === 400);
+
+      // Une proposition d'alice ne doit pas pouvoir être supprimée par un autre membre.
+      const dave = client();
+      await dave('POST', '/api/auth/register', {
+        username: 'dave', email: 'dave@test.local', password: 'MotDePasseDave12',
+      });
+      const daveDel = await dave('DELETE', '/api/suggestions/' + ideaId);
+      check('un tiers ne peut pas supprimer', daveDel.status === 403,
+        `-> HTTP ${daveDel.status} ${JSON.stringify(daveDel.data)}`);
+      check('l’auteur peut supprimer la sienne',
+        (await alice('DELETE', '/api/suggestions/' + ideaId)).status === 200);
+    }
+
+    console.log('\n— Ma liste (favoris)');
+    {
+      r = await alice('GET', '/api/content');
+      check('aucun favori au départ', r.data.favoris.length === 0);
+
+      r = await alice('POST', `/api/content/${filmId}/favorite`);
+      check('ajout aux favoris', r.status === 200 && r.data.favorite === true);
+
+      r = await alice('GET', '/api/content');
+      check('le favori apparaît dans ma liste', r.data.favoris.length === 1);
+      check('le film est marqué comme favori', r.data.films.find((f) => f.id === filmId)?.favorite === true);
+
+      // Les favoris sont propres à chaque membre.
+      r = await admin('GET', '/api/content');
+      check('les favoris ne fuient pas d’un compte à l’autre', r.data.favoris.length === 0);
+
+      r = await alice('POST', `/api/content/${filmId}/favorite`);
+      check('retrait des favoris', r.data.favorite === false);
+      check('ma liste est de nouveau vide', (await alice('GET', '/api/content')).data.favoris.length === 0);
+    }
+
     console.log('\n— Journal et statistiques');
     r = await admin('GET', '/api/admin/logs');
     check('journal alimenté', r.status === 200 && r.data.logs.length > 5);
@@ -355,6 +429,29 @@ async function waitForServer(proc) {
     console.log('\n— Déconnexion');
     check('déconnexion', (await admin('POST', '/api/auth/logout')).status === 200);
     check('session close après déconnexion', (await admin('GET', '/api/admin/users')).status === 401);
+
+    console.log('\n— Protection contre la force brute');
+    {
+      // Le quota est volontairement relevé pour les tests : on vérifie ici
+      // qu'il finit bien par bloquer, plutôt que de supposer qu'il existe.
+      const attacker = client();
+      let blocked = 0;
+      for (let i = 1; i <= 70; i++) {
+        const res = await attacker('POST', '/api/auth/login', {
+          identifier: 'root_admin',
+          password: 'essai-' + i,
+        });
+        if (res.status === 429) {
+          blocked = i;
+          break;
+        }
+      }
+      check(
+        'les connexions répétées finissent par être bloquées (429)',
+        blocked > 0,
+        blocked ? `bloqué après ${blocked} essais` : 'jamais bloqué en 70 essais'
+      );
+    }
 
     console.log('\n— Pages statiques');
     check('page de connexion servie', (await fetch(BASE + '/login.html')).status === 200);

@@ -40,6 +40,7 @@ router.get('/stats', (req, res) => {
     films: g("SELECT COUNT(*) c FROM content WHERE type='film'"),
     series: g("SELECT COUNT(*) c FROM content WHERE type='serie'"),
     jeux: g("SELECT COUNT(*) c FROM content WHERE type='jeu'"),
+    suggestions: g("SELECT COUNT(*) c FROM suggestions WHERE status = 'nouveau'"),
   });
 });
 

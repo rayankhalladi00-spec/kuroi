@@ -3,11 +3,20 @@
 Plateforme de streaming façon Netflix : films, séries et jeux, avec comptes
 utilisateurs et panneau d'administration.
 
-- **Films / séries** : lecteur intégré (partage Google Drive ou URL vidéo directe)
-- **Jeux** : lien vers un dossier Google Drive
-- **Comptes** : inscription, connexion, sessions persistantes
+- **Films / séries** : lecteur intégré. Le champ accepte un lien, un partage
+  Google Drive, ou tout un code d'intégration `<iframe>` — seule l'adresse en
+  est extraite.
+- **Jeux** : fichiers joints téléchargeables (`.torrent`, archives) servis aux
+  seuls membres, ou lien externe.
+- **Affiches** : envoyées depuis l'administration, signature du fichier vérifiée.
+- **Comptes** : inscription, connexion, sessions persistantes.
+- **Ma liste** : favoris propres à chaque membre.
+- **Recherche** dans le catalogue (titre, genre, année, description).
+- **Boîte à idées** : les membres proposent des titres et votent ; l'équipe
+  répond et suit chaque proposition (proposé, prévu, ajouté, refusé).
+- **Thème clair / sombre** au choix, mémorisé, aligné par défaut sur le système.
 - **Administration** : gestion des comptes (rôles, bannissement, réinitialisation
-  de mot de passe, suppression), gestion du catalogue, journal des actions
+  de mot de passe, suppression), gestion du catalogue, journal des actions.
 
 Aucune dépendance native : la base est SQLite via le module `node:sqlite` intégré
 à Node. Rien à compiler, rien à installer à côté.
@@ -35,8 +44,9 @@ administrateur est créé : les identifiants s'affichent dans la console et sont
 npm run smoke
 ```
 
-45 vérifications de bout en bout : authentification, cloisonnement des droits,
-CRUD du catalogue, bannissement, garde-fous administrateur.
+92 vérifications de bout en bout : authentification, cloisonnement des droits,
+CRUD du catalogue, envois de fichiers, extraction des lecteurs, boîte à idées,
+favoris, bannissement, garde-fous administrateur et anti-force-brute.
 
 ## Déploiement sur le VPS
 

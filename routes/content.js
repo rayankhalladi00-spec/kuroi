@@ -12,19 +12,31 @@ const listFiles = db.prepare(
   "SELECT id, original_name, size FROM files WHERE content_id = ? AND kind = 'attachment' ORDER BY id"
 );
 
-function decorate(item) {
+function decorate(item, favIds) {
   item.files = listFiles.all(item.id);
   // Le client a besoin de savoir s'il doit poser une balise <video> ou un
   // lecteur externe en <iframe>.
   item.player = item.video_url ? (isDirectVideo(item.video_url) ? 'video' : 'embed') : null;
+  item.favorite = favIds.has(item.id);
   return item;
 }
 
+function favoriteIds(userId) {
+  return new Set(
+    db.prepare('SELECT content_id FROM favorites WHERE user_id = ?').all(userId).map((r) => r.content_id)
+  );
+}
+
 router.get('/', (req, res) => {
-  const rows = db.prepare('SELECT * FROM content ORDER BY sort_order, id DESC').all().map(decorate);
+  const favIds = favoriteIds(req.user.id);
+  const rows = db
+    .prepare('SELECT * FROM content ORDER BY sort_order, id DESC')
+    .all()
+    .map((r) => decorate(r, favIds));
 
   res.json({
     featured: rows.find((r) => r.featured) || rows[0] || null,
+    favoris: rows.filter((r) => r.favorite),
     films: rows.filter((r) => r.type === 'film'),
     series: rows.filter((r) => r.type === 'serie'),
     jeux: rows.filter((r) => r.type === 'jeu'),
@@ -34,7 +46,24 @@ router.get('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const item = db.prepare('SELECT * FROM content WHERE id = ?').get(req.params.id);
   if (!item) return res.status(404).json({ error: 'Introuvable' });
-  res.json({ item: decorate(item) });
+  res.json({ item: decorate(item, favoriteIds(req.user.id)) });
+});
+
+// Ajout/retrait de « ma liste ».
+router.post('/:id/favorite', (req, res) => {
+  const item = db.prepare('SELECT id FROM content WHERE id = ?').get(req.params.id);
+  if (!item) return res.status(404).json({ error: 'Introuvable' });
+
+  const has = db
+    .prepare('SELECT 1 FROM favorites WHERE user_id = ? AND content_id = ?')
+    .get(req.user.id, item.id);
+
+  if (has)
+    db.prepare('DELETE FROM favorites WHERE user_id = ? AND content_id = ?').run(req.user.id, item.id);
+  else
+    db.prepare('INSERT INTO favorites (user_id, content_id) VALUES (?, ?)').run(req.user.id, item.id);
+
+  res.json({ ok: true, favorite: !has });
 });
 
 module.exports = router;

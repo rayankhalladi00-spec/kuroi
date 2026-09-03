@@ -5,9 +5,13 @@ const { db, audit } = require('../db');
 
 const router = express.Router();
 
+// Freine la force brute. Réglable car la suite de tests épuise sinon le quota
+// avec ses propres connexions légitimes.
+const LOGIN_LIMIT = Number(process.env.LOGIN_RATE_LIMIT) || 10;
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: LOGIN_LIMIT,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Trop de tentatives. Réessaie dans 15 minutes.' },

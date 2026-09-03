@@ -50,18 +50,13 @@ async function loadStats() {
     ['Films', s.films],
     ['Séries', s.series],
     ['Jeux', s.jeux],
+    ['Idées à traiter', s.suggestions],
   ]
     .map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`)
     .join('');
 }
 
 /* ------------------------------ utilisateurs ------------------------------ */
-
-function fmtDate(s) {
-  if (!s) return '—';
-  const d = new Date(s.replace(' ', 'T') + 'Z');
-  return isNaN(d) ? s : d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-}
 
 async function loadUsers() {
   const q = document.getElementById('userSearch').value.trim();
@@ -77,8 +72,8 @@ async function loadUsers() {
         <td>${u.banned
             ? `<span class="badge ban" title="${esc(u.ban_reason || '')}">banni</span>`
             : '<span class="badge ok">actif</span>'}</td>
-        <td>${fmtDate(u.created_at)}</td>
-        <td>${fmtDate(u.last_login_at)}</td>
+        <td>${formatDate(u.created_at)}</td>
+        <td>${formatDate(u.last_login_at)}</td>
         <td><div class="actions">
           <button class="btn btn-sm" data-act="pwd" data-id="${u.id}">Mot de passe</button>
           <button class="btn btn-sm" data-act="role" data-id="${u.id}" ${self ? 'disabled' : ''}>
@@ -531,7 +526,7 @@ document.getElementById('userSearch').addEventListener('input', () => {
   if (!requireLogin(me)) return;
   if (me.role !== 'admin') return void (location.href = '/');
   document.getElementById('nav').innerHTML = renderNav(me, '');
-  wireLogout();
+  wireNav();
   limits = await api('/api/admin/upload-limits').catch(() => null);
   await Promise.all([loadStats(), loadUsers()]);
 })();

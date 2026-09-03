@@ -1,12 +1,25 @@
 #!/usr/bin/env bash
 # Installation complète de Kuroi sur un VPS Ubuntu 24.04 vierge.
-# À lancer en root :
-#   bash install.sh https://github.com/rayankhalladi00-spec/kuroi.git
+#
+#   bash install.sh                         # clone depuis GitHub (défaut)
+#   bash install.sh <url-du-depot>          # clone depuis un autre dépôt
+#   bash install.sh --no-fetch              # utilise le code déjà présent dans /opt/kuroi
+#
+# Le mode --no-fetch sert quand le code a été envoyé directement par scp/rsync,
+# sans passer par GitHub.
 set -euo pipefail
 
-REPO_URL="${1:-https://github.com/rayankhalladi00-spec/kuroi.git}"
 APP_DIR=/opt/kuroi
 APP_USER=kuroi
+DEFAULT_REPO=https://github.com/rayankhalladi00-spec/kuroi.git
+
+FETCH=1
+REPO_URL="$DEFAULT_REPO"
+if [ "${1:-}" = "--no-fetch" ]; then
+  FETCH=0
+elif [ -n "${1:-}" ]; then
+  REPO_URL="$1"
+fi
 
 echo "==> Mise à jour du système"
 export DEBIAN_FRONTEND=noninteractive
@@ -21,12 +34,18 @@ node -v
 echo "==> Création de l'utilisateur applicatif « $APP_USER »"
 id -u "$APP_USER" &>/dev/null || useradd --system --create-home --shell /usr/sbin/nologin "$APP_USER"
 
-echo "==> Récupération du code dans $APP_DIR"
-if [ -d "$APP_DIR/.git" ]; then
-  git -C "$APP_DIR" pull --ff-only
+if [ "$FETCH" = "1" ]; then
+  echo "==> Récupération du code dans $APP_DIR"
+  if [ -d "$APP_DIR/.git" ]; then
+    git -C "$APP_DIR" fetch --quiet origin
+    git -C "$APP_DIR" reset --hard --quiet origin/main
+  else
+    rm -rf "$APP_DIR"
+    git clone "$REPO_URL" "$APP_DIR"
+  fi
 else
-  rm -rf "$APP_DIR"
-  git clone "$REPO_URL" "$APP_DIR"
+  echo "==> Utilisation du code déjà présent dans $APP_DIR"
+  [ -f "$APP_DIR/server.js" ] || { echo "ERREUR : $APP_DIR/server.js introuvable."; exit 1; }
 fi
 
 echo "==> Installation des dépendances"
@@ -72,15 +91,20 @@ ufw allow OpenSSH
 ufw allow 'Nginx Full'
 ufw --force enable
 
-sleep 2
+sleep 3
 echo
 echo "======================================================"
-echo " Installation terminée."
+if systemctl is-active --quiet kuroi; then
+  echo " Installation terminée, le site tourne."
+else
+  echo " ATTENTION : le service kuroi ne démarre pas."
+  journalctl -u kuroi -n 30 --no-pager
+fi
 echo " Site : http://$(curl -fsS --max-time 5 ifconfig.me || echo '<IP-du-VPS>')"
 echo
 echo " Identifiants administrateur :"
-cat "$APP_DIR/data/ADMIN_CREDENTIALS.txt" 2>/dev/null || journalctl -u kuroi -n 30 --no-pager | grep -A4 'ADMINISTRATEUR' || true
+cat "$APP_DIR/data/ADMIN_CREDENTIALS.txt" 2>/dev/null || echo "  (voir : journalctl -u kuroi | grep -A4 ADMINISTRATEUR)"
 echo
-echo " Quand le domaine pointera vers ce serveur, activer le HTTPS :"
+echo " Quand le domaine pointera ici, activer le HTTPS :"
 echo "   certbot --nginx -d exemple.com -d www.exemple.com"
 echo "======================================================"

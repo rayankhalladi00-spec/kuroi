@@ -53,19 +53,17 @@ router.post('/register', loginLimiter, (req, res) => {
   res.json({ ok: true, user: { id: user.id, username, email, role: 'user' } });
 });
 
-// La connexion exige le pseudo ET l'e-mail : deux identifiants à connaître au
-// lieu d'un seul, ce qui rend le bourrage d'identifiants nettement moins facile.
+// Un seul identifiant suffit : le pseudo ou l'e-mail, au choix.
 router.post('/login', loginLimiter, (req, res) => {
-  const username = String(req.body.username || '').trim();
-  const email = String(req.body.email || '').trim().toLowerCase();
+  const identifier = String(req.body.identifier || '').trim();
   const password = String(req.body.password || '');
 
-  if (!username || !email || !password)
-    return res.status(400).json({ error: 'Pseudo, e-mail et mot de passe sont tous requis.' });
+  if (!identifier || !password)
+    return res.status(400).json({ error: 'Pseudo/e-mail et mot de passe requis.' });
 
   const user = db
-    .prepare('SELECT * FROM users WHERE username = ? AND email = ?')
-    .get(username, email);
+    .prepare('SELECT * FROM users WHERE username = ? OR email = ?')
+    .get(identifier, identifier.toLowerCase());
 
   // Comparaison systématique pour ne pas révéler si le compte existe.
   const hash = user?.password_hash || '$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidiu';

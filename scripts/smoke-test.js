@@ -99,28 +99,26 @@ async function waitForServer(proc) {
     check('anonyme rejeté sur /api/admin/users', (await anon('GET', '/api/admin/users')).status === 401);
 
     let r = await admin('POST', '/api/auth/login', {
-      username: 'root_admin',
-      email: 'admin@test.local',
+      identifier: 'root_admin',
       password: 'MotDePasseAdmin123',
     });
     check('connexion admin', r.status === 200 && r.data.user.role === 'admin', JSON.stringify(r.data));
 
-    r = await admin('POST', '/api/auth/login', {
-      username: 'root_admin',
-      email: 'admin@test.local',
-      password: 'mauvais',
-    });
+    r = await admin('POST', '/api/auth/login', { identifier: 'root_admin', password: 'mauvais' });
     check('mauvais mot de passe refusé', r.status === 401);
 
-    // La connexion réclame le pseudo ET l'e-mail : aucun des deux seul ne suffit.
-    check('pseudo seul refusé',
+    // Un seul identifiant suffit, et les deux chemins doivent marcher : le
+    // pseudo comme l'e-mail. Seul le premier était couvert jusqu'ici.
+    check('connexion par e-mail',
       (await client()('POST', '/api/auth/login', {
-        username: 'root_admin', password: 'MotDePasseAdmin123',
-      })).status === 400);
-    check('e-mail seul refusé',
+        identifier: 'admin@test.local', password: 'MotDePasseAdmin123',
+      })).status === 200);
+    check('e-mail insensible à la casse',
       (await client()('POST', '/api/auth/login', {
-        email: 'admin@test.local', password: 'MotDePasseAdmin123',
-      })).status === 400);
+        identifier: 'Admin@Test.Local', password: 'MotDePasseAdmin123',
+      })).status === 200);
+    check('identifiant vide refusé',
+      (await client()('POST', '/api/auth/login', { password: 'MotDePasseAdmin123' })).status === 400);
 
     // Sans cookie, la connexion renvoie 200 mais personne ne reste connecté :
     // c'est exactement ce qui arrive si « Secure » est exigé sans HTTPS.
@@ -128,11 +126,7 @@ async function waitForServer(proc) {
       const res = await fetch(BASE + '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: 'root_admin',
-          email: 'admin@test.local',
-          password: 'MotDePasseAdmin123',
-        }),
+        body: JSON.stringify({ identifier: 'root_admin', password: 'MotDePasseAdmin123' }),
       });
       const cookies = res.headers.getSetCookie?.() ?? [];
       check('un cookie de session est bien émis', cookies.some((c) => c.startsWith('kuroi.sid=')),
@@ -161,13 +155,10 @@ async function waitForServer(proc) {
     });
     check('mot de passe trop court refusé', r.status === 400);
 
-    // Maintenant qu'alice existe, on peut vérifier qu'un pseudo et un e-mail
-    // valides mais appartenant à deux comptes différents ne passent pas.
-    check('pseudo et e-mail de comptes différents refusés',
+    // Le mot de passe d'un compte ne doit pas ouvrir celui d'un autre.
+    check('identifiant et mot de passe de comptes différents refusés',
       (await client()('POST', '/api/auth/login', {
-        username: 'root_admin',
-        email: 'alice@test.local',
-        password: 'MotDePasseAdmin123',
+        identifier: 'alice', password: 'MotDePasseAdmin123',
       })).status === 401);
 
     console.log('\n— Cloisonnement des droits');
@@ -338,13 +329,13 @@ async function waitForServer(proc) {
     const nouveauMdp = r.data.password;
 
     const alice2 = client();
-    r = await alice2('POST', '/api/auth/login', { username: 'alice', email: 'alice@test.local', password: nouveauMdp });
+    r = await alice2('POST', '/api/auth/login', { identifier: 'alice', password: nouveauMdp });
     check('alice se reconnecte avec le nouveau mot de passe', r.status === 200, JSON.stringify(r.data));
 
     r = await admin('POST', `/api/admin/users/${aliceRow.id}/ban`, { banned: true, reason: 'test' });
     check('bannissement', r.status === 200 && r.data.user.banned === 1, JSON.stringify(r.data));
     check('session bannie coupée immédiatement', (await alice2('GET', '/api/content')).status === 403);
-    r = await alice2('POST', '/api/auth/login', { username: 'alice', email: 'alice@test.local', password: nouveauMdp });
+    r = await alice2('POST', '/api/auth/login', { identifier: 'alice', password: nouveauMdp });
     check('reconnexion impossible si banni', r.status === 403 && r.data.reason === 'test');
 
     r = await admin('POST', `/api/admin/users/${aliceRow.id}/ban`, { banned: false });
@@ -370,10 +361,10 @@ async function waitForServer(proc) {
     const carolId = r.data.user.id;
     const carol = client();
     check('carol peut se connecter',
-      (await carol('POST', '/api/auth/login', { username: 'carol', email: 'carol@test.local', password: r.data.password })).status === 200);
+      (await carol('POST', '/api/auth/login', { identifier: 'carol', password: r.data.password })).status === 200);
     check('suppression de carol', (await admin('DELETE', `/api/admin/users/${carolId}`)).status === 200);
     check('carol ne peut plus se connecter',
-      (await client()('POST', '/api/auth/login', { username: 'carol', email: 'carol@test.local', password: 'peu importe' })).status === 401);
+      (await client()('POST', '/api/auth/login', { identifier: 'carol', password: 'peu importe' })).status === 401);
 
     console.log('\n— Boîte à idées');
     {
@@ -466,8 +457,7 @@ async function waitForServer(proc) {
       let blocked = 0;
       for (let i = 1; i <= 70; i++) {
         const res = await attacker('POST', '/api/auth/login', {
-          username: 'root_admin',
-          email: 'admin@test.local',
+          identifier: 'root_admin',
           password: 'essai-' + i,
         });
         if (res.status === 429) {

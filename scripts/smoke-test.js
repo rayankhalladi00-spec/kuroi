@@ -455,6 +455,25 @@ async function waitForServer(proc) {
 
     console.log('\n— Pages statiques');
     check('page de connexion servie', (await fetch(BASE + '/login.html')).status === 200);
+
+    // Sans empreinte dans l'adresse, un navigateur garde son ancienne copie du
+    // CSS et le site paraît inchangé après un déploiement.
+    {
+      const html = await (await fetch(BASE + '/login.html')).text();
+      const assets = [...html.matchAll(/(?:href|src)="(\/(?:css|js)\/[^"]+)"/g)].map((m) => m[1]);
+      check('la page référence bien du CSS et du JS', assets.length >= 2, JSON.stringify(assets));
+      check('chaque fichier statique porte une empreinte',
+        assets.length > 0 && assets.every((a) => /\?v=[a-f0-9]{8}$/.test(a)),
+        JSON.stringify(assets));
+
+      const served = await Promise.all(assets.map((a) => fetch(BASE + a).then((r) => r.status)));
+      check('les fichiers empreintés sont bien servis', served.every((s) => s === 200),
+        JSON.stringify(served));
+
+      const cache = (await fetch(BASE + '/css/style.css')).headers.get('cache-control') || '';
+      check('le CSS est revalidé, pas figé pour des jours',
+        !/max-age=(?!0)\d+/.test(cache), `Cache-Control: ${cache}`);
+    }
     check('404 sur page inconnue', (await fetch(BASE + '/nexistepas')).status === 404);
     check('dossier private non exposé', (await fetch(BASE + '/admin.html')).status === 404);
   } catch (e) {

@@ -52,6 +52,9 @@ echo "==> Installation des dépendances"
 cd "$APP_DIR"
 npm ci --omit=dev
 
+echo "==> Empreinte des fichiers statiques"
+node scripts/stamp-assets.js
+
 echo "==> Configuration (.env)"
 if [ ! -f "$APP_DIR/.env" ]; then
   SECRET=$(node -e "console.log(require('crypto').randomBytes(48).toString('hex'))")

@@ -21,6 +21,9 @@ fi
 echo "==> Dépendances"
 npm ci --omit=dev
 
+echo "==> Empreinte des fichiers statiques"
+node scripts/stamp-assets.js
+
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
 echo "==> Redémarrage"

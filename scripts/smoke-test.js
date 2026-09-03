@@ -103,6 +103,20 @@ async function waitForServer(proc) {
     r = await admin('POST', '/api/auth/login', { identifier: 'root_admin', password: 'mauvais' });
     check('mauvais mot de passe refusé', r.status === 401);
 
+    // Sans cookie, la connexion renvoie 200 mais personne ne reste connecté :
+    // c'est exactement ce qui arrive si « Secure » est exigé sans HTTPS.
+    {
+      const res = await fetch(BASE + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: 'root_admin', password: 'MotDePasseAdmin123' }),
+      });
+      const cookies = res.headers.getSetCookie?.() ?? [];
+      check('un cookie de session est bien émis', cookies.some((c) => c.startsWith('kuroi.sid=')),
+        JSON.stringify(cookies));
+      check('cookie httpOnly', cookies.some((c) => /httponly/i.test(c)));
+    }
+
     r = await alice('POST', '/api/auth/register', {
       username: 'alice',
       email: 'alice@test.local',

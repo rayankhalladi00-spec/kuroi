@@ -16,6 +16,15 @@ const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
 const PROD = process.env.NODE_ENV === 'production';
 
+// Le cookie de session ne peut porter l'attribut « Secure » que si le site est
+// servi en HTTPS : sinon le navigateur le rejette en silence et personne ne
+// reste connecte. Tant que le domaine et le certificat ne sont pas en place,
+// mettre COOKIE_SECURE=false dans .env, puis repasser a true apres certbot.
+const COOKIE_SECURE =
+  process.env.COOKIE_SECURE === undefined
+    ? PROD
+    : process.env.COOKIE_SECURE === 'true';
+
 if (!process.env.SESSION_SECRET && PROD) {
   console.error('FATAL: SESSION_SECRET manquant dans .env');
   process.exit(1);
@@ -59,7 +68,7 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: PROD,
+      secure: COOKIE_SECURE,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 jours
     },
   })
@@ -87,6 +96,12 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Erreur serveur' });
 });
+
+if (PROD && !COOKIE_SECURE) {
+  console.warn('ATTENTION : COOKIE_SECURE=false, les sessions circulent en clair.');
+  console.warn("            À n'utiliser que le temps d'installer le HTTPS :");
+  console.warn('            certbot --nginx -d ton-domaine.com, puis repasser à true.');
+}
 
 ensureAdmin();
 

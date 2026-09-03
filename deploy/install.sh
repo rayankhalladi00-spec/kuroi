@@ -59,6 +59,8 @@ if [ ! -f "$APP_DIR/.env" ]; then
 NODE_ENV=production
 PORT=3000
 HOST=127.0.0.1
+# Passer a true apres avoir installe le HTTPS (certbot).
+COOKIE_SECURE=false
 SESSION_SECRET=$SECRET
 ADMIN_USERNAME=rayan
 ADMIN_EMAIL=rayan.khalladi@icloud.com

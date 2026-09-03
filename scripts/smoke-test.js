@@ -27,12 +27,13 @@ function check(name, cond, extra = '') {
 function client() {
   const jar = new Map();
   return async function call(method, url, body) {
-    const headers = { 'Content-Type': 'application/json' };
+    const multipart = body instanceof FormData;
+    const headers = multipart ? {} : { 'Content-Type': 'application/json' };
     if (jar.size) headers.Cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
     const res = await fetch(BASE + url, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
       redirect: 'manual',
     });
     for (const c of res.headers.getSetCookie?.() ?? []) {
@@ -180,6 +181,119 @@ async function waitForServer(proc) {
 
     check('alice ne peut pas ajouter de contenu',
       (await alice('POST', '/api/admin/content', { type: 'film', title: 'Pirate' })).status === 403);
+
+    console.log("\n— Code d'intégration des lecteurs");
+    {
+      // Ce que colle réellement un administrateur : tout le bloc <iframe>.
+      r = await admin('POST', '/api/admin/content', {
+        type: 'film',
+        title: 'Film intégré',
+        video_url:
+          '<iframe src="https://lecteur.example.com/e/xyz789" width="640" height="360" frameborder="0" allowfullscreen></iframe>',
+      });
+      check("code d'intégration accepté", r.status === 200, JSON.stringify(r.data));
+      const embedded = r.data.id;
+
+      r = await alice('GET', '/api/content/' + embedded);
+      check("seule l'adresse est conservée",
+        r.data.item.video_url === 'https://lecteur.example.com/e/xyz789', r.data.item.video_url);
+      check('aucun HTML stocké en base', !/[<>]/.test(r.data.item.video_url || ''));
+      check('lecteur externe détecté', r.data.item.player === 'embed');
+
+      // Une adresse en http est basculée en https, sinon le navigateur la bloque.
+      r = await admin('PUT', '/api/admin/content/' + embedded, {
+        video_url: '<iframe src="http://lecteur.example.com/e/abc"></iframe>',
+      });
+      check('http basculé en https', r.status === 200 && /passé en https/.test(r.data.notice || ''),
+        JSON.stringify(r.data));
+
+      // Adresse relative au protocole, très courante dans les codes fournis.
+      r = await admin('PUT', '/api/admin/content/' + embedded, {
+        video_url: '<iframe src="//lecteur.example.com/e/rel"></iframe>',
+      });
+      r = await alice('GET', '/api/content/' + embedded);
+      check('adresse //… complétée en https',
+        r.data.item.video_url === 'https://lecteur.example.com/e/rel', r.data.item.video_url);
+
+      check('script déguisé en lecteur refusé',
+        (await admin('PUT', '/api/admin/content/' + embedded, {
+          video_url: '<script>alert(1)</script>',
+        })).status === 400);
+      check('adresse javascript: refusée',
+        (await admin('PUT', '/api/admin/content/' + embedded, {
+          video_url: 'javascript:alert(1)',
+        })).status === 400);
+
+      check('fichier .mp4 reconnu comme vidéo directe',
+        (await admin('PUT', '/api/admin/content/' + embedded, {
+          video_url: 'https://exemple.com/film.mp4',
+        })).status === 200 &&
+        (await alice('GET', '/api/content/' + embedded)).data.item.player === 'video');
+
+      // Le domaine du lecteur doit être autorisé par la politique de sécurité.
+      const page = await fetch(BASE + '/login.html');
+      check('domaine du lecteur autorisé dans la CSP',
+        (page.headers.get('content-security-policy') || '').includes('exemple.com'),
+        page.headers.get('content-security-policy'));
+
+      await admin('DELETE', '/api/admin/content/' + embedded);
+    }
+
+    console.log('\n— Pièces jointes et affiches');
+    {
+      const jeuId = (await admin('POST', '/api/admin/content', { type: 'jeu', title: 'Jeu joint' })).data.id;
+
+      // Un .torrent est du bencode : il commence par « d ».
+      const torrent = Buffer.from('d8:announce30:http://exemple.local/announcee');
+      const post = async (client, id, route, filename, buf) => {
+        const form = new FormData();
+        form.append('file', new Blob([buf]), filename);
+        return client('POST', `/api/admin/content/${id}/${route}`, form);
+      };
+
+      r = await post(admin, jeuId, 'files', 'jeu.torrent', torrent);
+      check('envoi du .torrent', r.status === 200 && r.data.file.size === torrent.length,
+        JSON.stringify(r.data));
+      const fileId = r.data.file?.id;
+
+      check('extension refusée',
+        (await post(admin, jeuId, 'files', 'virus.exe', Buffer.from('MZ'))).status === 400);
+      check('faux .torrent refusé',
+        (await post(admin, jeuId, 'files', 'faux.torrent', Buffer.from('pas du bencode'))).status === 400);
+
+      r = await alice('GET', '/api/content/' + jeuId);
+      check('pièce jointe visible par un membre', r.data.item.files.length === 1);
+      check('nom d’origine conservé', r.data.item.files[0].original_name === 'jeu.torrent');
+
+      // Le téléchargement doit rester réservé aux membres.
+      const anonDl = await fetch(`${BASE}/api/files/${fileId}`);
+      check('téléchargement refusé sans session', anonDl.status === 401);
+
+      r = await alice('GET', '/api/files/' + fileId);
+      check('téléchargement autorisé pour un membre', r.status === 200);
+
+      // Affiche : PNG minimal, signature vérifiée côté serveur.
+      const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+      r = await post(admin, jeuId, 'poster', 'affiche.png', png);
+      check("envoi de l'affiche", r.status === 200 && r.data.poster_url.startsWith('/api/files/'),
+        JSON.stringify(r.data));
+      const posterUrl = r.data.poster_url;
+
+      check('image invalide refusée',
+        (await post(admin, jeuId, 'poster', 'faux.png', Buffer.from('pas une image'))).status === 400);
+
+      r = await alice('GET', '/api/content/' + jeuId);
+      check("affiche rattachée au contenu", r.data.item.poster_url === posterUrl);
+      check("l'affiche n'apparaît pas dans les téléchargements", r.data.item.files.length === 1);
+
+      const posterRes = await fetch(BASE + posterUrl);
+      check('affiche protégée elle aussi', posterRes.status === 401);
+
+      // Supprimer le contenu doit emporter ses fichiers.
+      await admin('DELETE', '/api/admin/content/' + jeuId);
+      check('fichiers supprimés avec le contenu',
+        (await alice('GET', '/api/files/' + fileId)).status === 404);
+    }
 
     console.log('\n— Gestion des utilisateurs');
     r = await admin('GET', '/api/admin/users');

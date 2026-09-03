@@ -5,6 +5,7 @@ const express = require('express');
 const helmet = require('helmet');
 const session = require('express-session');
 const SqliteSessionStore = require('./session-store');
+const { embedHosts, embedHostsVersion } = require('./lib/embed');
 
 const { loadUser, requireAdmin } = require('./middleware/auth');
 const ensureAdmin = require('./scripts/ensure-admin');
@@ -33,26 +34,43 @@ if (!process.env.SESSION_SECRET && PROD) {
 // Derrière Nginx : nécessaire pour les cookies secure et le rate-limit par IP.
 app.set('trust proxy', 1);
 
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-        imgSrc: ["'self'", 'data:', 'https:'],
-        mediaSrc: ["'self'", 'https:', 'blob:'],
-        // Lecteur Google Drive intégré
-        frameSrc: ["'self'", 'https://drive.google.com', 'https://*.google.com'],
-        connectSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        frameAncestors: ["'self'"],
-      },
-    },
-    crossOriginEmbedderPolicy: false,
-  })
-);
+// La CSP est gérée à part : la liste des lecteurs autorisés dépend du
+// catalogue, or helmet attend des directives figées.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+// Lecteurs autorisés : Google Drive, plus les domaines réellement utilisés par
+// le catalogue — on n'ouvre que le strict nécessaire. L'en-tête n'est
+// reconstruit que lorsque le contenu change.
+let cspCache = { version: -1, middleware: null };
+
+app.use(function contentSecurityPolicy(req, res, next) {
+  const version = embedHostsVersion();
+  if (version !== cspCache.version) {
+    cspCache = {
+      version,
+      middleware: helmet.contentSecurityPolicy({
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          mediaSrc: ["'self'", 'https:', 'blob:'],
+          frameSrc: [
+            "'self'",
+            'https://drive.google.com',
+            'https://*.google.com',
+            ...embedHosts(),
+          ],
+          connectSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'self'"],
+        },
+      }),
+    };
+  }
+  return cspCache.middleware(req, res, next);
+});
 
 app.use(express.json({ limit: '200kb' }));
 app.use(express.urlencoded({ extended: false, limit: '200kb' }));
@@ -78,6 +96,7 @@ app.use(loadUser);
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/content', require('./routes/content'));
+app.use('/api/files', require('./routes/files'));
 app.use('/api/admin', require('./routes/admin'));
 
 // Page admin protégée côté serveur, pas seulement côté client.

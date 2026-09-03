@@ -3,6 +3,18 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { db, audit } = require('../db');
 const { requireAdmin } = require('../middleware/auth');
+const { extractEmbedUrl, invalidateEmbedHosts } = require('../lib/embed');
+const {
+  upload,
+  uploadImage,
+  ALLOWED_EXT,
+  MAX_SIZE,
+  IMAGE_EXT,
+  MAX_IMAGE_SIZE,
+  looksLikeTorrent,
+  sniffImage,
+  removeFile,
+} = require('../lib/uploads');
 
 const router = express.Router();
 router.use(requireAdmin);
@@ -179,10 +191,22 @@ function pickContent(body) {
   return out;
 }
 
+// Remplace le champ « lecteur » par la seule adresse extraite du code collé.
+// Renvoie un message d'information si l'adresse a dû être ajustée.
+function normalizeEmbed(c) {
+  if (!c.video_url) return null;
+  const { url, upgraded } = extractEmbedUrl(c.video_url);
+  c.video_url = url;
+  return upgraded
+    ? 'Le lecteur était en http : passé en https, sinon le navigateur le bloque sur un site sécurisé.'
+    : null;
+}
+
 router.get('/content', (req, res) => {
-  res.json({
-    content: db.prepare('SELECT * FROM content ORDER BY type, sort_order, id').all(),
-  });
+  const content = db.prepare('SELECT * FROM content ORDER BY type, sort_order, id').all();
+  const files = db.prepare('SELECT * FROM files ORDER BY id').all();
+  for (const c of content) c.files = files.filter((f) => f.content_id === c.id);
+  res.json({ content });
 });
 
 router.post('/content', (req, res) => {
@@ -191,6 +215,13 @@ router.post('/content', (req, res) => {
     return res.status(400).json({ error: 'Type invalide (film, serie ou jeu).' });
   if (!c.title) return res.status(400).json({ error: 'Titre requis.' });
 
+  let notice;
+  try {
+    notice = normalizeEmbed(c);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
   const info = db
     .prepare(
       `INSERT INTO content (${CONTENT_FIELDS.join(',')})
@@ -198,8 +229,9 @@ router.post('/content', (req, res) => {
     )
     .run(c);
   const newId = Number(info.lastInsertRowid);
+  invalidateEmbedHosts();
   audit(req.user, 'add_content', `content#${newId}`, `${c.type}: ${c.title}`);
-  res.json({ ok: true, id: newId });
+  res.json({ ok: true, id: newId, notice });
 });
 
 router.put('/content/:id', (req, res) => {
@@ -211,18 +243,143 @@ router.put('/content/:id', (req, res) => {
     return res.status(400).json({ error: 'Type invalide.' });
   if (!c.title) return res.status(400).json({ error: 'Titre requis.' });
 
+  let notice;
+  try {
+    notice = normalizeEmbed(c);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
   db.prepare(
     `UPDATE content SET ${CONTENT_FIELDS.map((f) => `${f} = @${f}`).join(', ')} WHERE id = @id`
   ).run({ ...c, id: existing.id });
+  invalidateEmbedHosts();
   audit(req.user, 'edit_content', `content#${existing.id}`, c.title);
-  res.json({ ok: true });
+  res.json({ ok: true, notice });
 });
 
 router.delete('/content/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM content WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Contenu introuvable' });
+
+  // La cascade nettoie la table files ; les fichiers sur le disque, non.
+  const attached = db.prepare('SELECT stored_name FROM files WHERE content_id = ?').all(existing.id);
   db.prepare('DELETE FROM content WHERE id = ?').run(existing.id);
+  for (const f of attached) removeFile(f.stored_name);
+
+  invalidateEmbedHosts();
   audit(req.user, 'delete_content', `content#${existing.id}`, existing.title);
+  res.json({ ok: true });
+});
+
+/* ------------------------------ pièces jointes ----------------------------- */
+
+router.get('/upload-limits', (req, res) =>
+  res.json({
+    extensions: ALLOWED_EXT,
+    maxSize: MAX_SIZE,
+    imageExtensions: IMAGE_EXT,
+    maxImageSize: MAX_IMAGE_SIZE,
+  })
+);
+
+const insertFile = db.prepare(
+  `INSERT INTO files (content_id, kind, original_name, stored_name, mime, size)
+   VALUES (?, ?, ?, ?, ?, ?)`
+);
+
+// Traduit les erreurs de multer en messages lisibles.
+function uploadError(err, maxSize) {
+  return err.code === 'LIMIT_FILE_SIZE'
+    ? `Fichier trop volumineux (maximum ${Math.round(maxSize / 1024 / 1024)} Mo).`
+    : err.message;
+}
+
+router.post('/content/:id/files', (req, res) => {
+  const content = db.prepare('SELECT id, title FROM content WHERE id = ?').get(req.params.id);
+  if (!content) return res.status(404).json({ error: 'Contenu introuvable' });
+
+  upload.single('file')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: uploadError(err, MAX_SIZE) });
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+
+    if (req.file.originalname.toLowerCase().endsWith('.torrent') && !looksLikeTorrent(req.file.path)) {
+      removeFile(req.file.filename);
+      return res.status(400).json({ error: 'Ce fichier ne ressemble pas à un .torrent valide.' });
+    }
+
+    const info = insertFile.run(
+      content.id,
+      'attachment',
+      req.file.originalname,
+      req.file.filename,
+      req.file.mimetype,
+      req.file.size
+    );
+
+    audit(req.user, 'add_file', `content#${content.id}`, `${req.file.originalname} (${content.title})`);
+    res.json({
+      ok: true,
+      file: db.prepare('SELECT * FROM files WHERE id = ?').get(Number(info.lastInsertRowid)),
+    });
+  });
+});
+
+// Affiche : une seule par contenu. La précédente est remplacée.
+router.post('/content/:id/poster', (req, res) => {
+  const content = db.prepare('SELECT id, title FROM content WHERE id = ?').get(req.params.id);
+  if (!content) return res.status(404).json({ error: 'Contenu introuvable' });
+
+  uploadImage.single('file')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: uploadError(err, MAX_IMAGE_SIZE) });
+    if (!req.file) return res.status(400).json({ error: 'Aucune image reçue.' });
+
+    // L'extension ne prouve rien : on vérifie la signature du fichier.
+    const mime = sniffImage(req.file.path);
+    if (!mime) {
+      removeFile(req.file.filename);
+      return res.status(400).json({ error: "Ce fichier n'est pas une image valide." });
+    }
+
+    for (const old of db
+      .prepare("SELECT * FROM files WHERE content_id = ? AND kind = 'poster'")
+      .all(content.id)) {
+      db.prepare('DELETE FROM files WHERE id = ?').run(old.id);
+      removeFile(old.stored_name);
+    }
+
+    const info = insertFile.run(
+      content.id,
+      'poster',
+      req.file.originalname,
+      req.file.filename,
+      mime,
+      req.file.size
+    );
+    const id = Number(info.lastInsertRowid);
+    const url = `/api/files/${id}/view`;
+    db.prepare('UPDATE content SET poster_url = ? WHERE id = ?').run(url, content.id);
+
+    audit(req.user, 'set_poster', `content#${content.id}`, `${req.file.originalname} (${content.title})`);
+    res.json({ ok: true, poster_url: url, file: db.prepare('SELECT * FROM files WHERE id = ?').get(id) });
+  });
+});
+
+router.delete('/files/:id', (req, res) => {
+  const file = db.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);
+  if (!file) return res.status(404).json({ error: 'Fichier introuvable' });
+
+  db.prepare('DELETE FROM files WHERE id = ?').run(file.id);
+  removeFile(file.stored_name);
+
+  // Retirer une affiche doit aussi vider le champ qui la référence.
+  if (file.kind === 'poster')
+    db.prepare("UPDATE content SET poster_url = NULL WHERE id = ? AND poster_url = ?").run(
+      file.content_id,
+      `/api/files/${file.id}/view`
+    );
+
+  audit(req.user, 'delete_file', `content#${file.content_id}`, file.original_name);
   res.json({ ok: true });
 });
 

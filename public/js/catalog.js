@@ -10,8 +10,7 @@ function card(item) {
     : '';
   const inner = item.poster_url ? '' : ICONS[item.type];
   return `
-    <article class="card" data-id="${item.id}" data-type="${esc(item.type)}"
-             data-url="${esc(item.external_url || '')}">
+    <article class="card" data-id="${item.id}" data-type="${esc(item.type)}">
       <div class="card-img"${poster}>${inner}</div>
       <div class="card-body">
         <div class="card-title">${esc(item.title)}</div>
@@ -34,7 +33,7 @@ function hero(item) {
   const bg = item.poster_url ? `background-image:url('${esc(item.poster_url)}')` : '';
   const action =
     item.type === 'jeu'
-      ? `<a class="btn btn-primary" href="${esc(item.external_url || '#')}" target="_blank" rel="noopener noreferrer">▶ Jouer</a>`
+      ? `<a class="btn btn-primary" href="/game.html?id=${item.id}">⬇ Télécharger</a>`
       : `<a class="btn btn-primary" href="/watch.html?id=${item.id}">▶ Regarder</a>`;
   return `
     <header class="hero" style="${bg}">
@@ -49,13 +48,9 @@ function hero(item) {
 
 function bindCards() {
   document.querySelectorAll('.card').forEach((el) => {
+    const page = el.dataset.type === 'jeu' ? 'game.html' : 'watch.html';
     el.addEventListener('click', () => {
-      if (el.dataset.type === 'jeu') {
-        const url = el.dataset.url;
-        if (url) window.open(url, '_blank', 'noopener,noreferrer');
-      } else {
-        location.href = `/watch.html?id=${el.dataset.id}`;
-      }
+      location.href = `/${page}?id=${el.dataset.id}`;
     });
   });
 }

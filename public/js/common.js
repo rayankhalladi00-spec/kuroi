@@ -37,6 +37,25 @@ function isDrive(url) {
   })());
 }
 
+function formatSize(bytes) {
+  const n = Number(bytes) || 0;
+  if (n < 1024) return `${n} o`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} Ko`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} Mo`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} Go`;
+}
+
+// Ligne de téléchargement d'une pièce jointe. Le serveur renvoie le fichier
+// avec son nom d'origine ; l'attribut download n'est là que par confort.
+function fileRow(f) {
+  return `
+    <a class="file-row" href="/api/files/${f.id}" download>
+      <span class="file-icon">⬇</span>
+      <span class="file-name">${esc(f.original_name)}</span>
+      <span class="file-size">${formatSize(f.size)}</span>
+    </a>`;
+}
+
 async function currentUser() {
   try {
     const { user } = await api('/api/auth/me');

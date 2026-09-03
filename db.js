@@ -68,12 +68,28 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Fichiers d'un contenu : pieces jointes telechargeables et affiches.
+-- Le fichier vit dans data/uploads/, la base ne garde que sa description.
+CREATE TABLE IF NOT EXISTS files (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  content_id    INTEGER NOT NULL REFERENCES content(id) ON DELETE CASCADE,
+  -- 'attachment' : fichier telechargeable (.torrent, archive)
+  -- 'poster'     : image d'affiche, servie en ligne
+  kind          TEXT NOT NULL DEFAULT 'attachment' CHECK (kind IN ('attachment','poster')),
+  original_name TEXT NOT NULL,
+  stored_name   TEXT NOT NULL UNIQUE,
+  mime          TEXT,
+  size          INTEGER NOT NULL,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
   sid     TEXT PRIMARY KEY,
   expires INTEGER NOT NULL,
   data    TEXT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_files_content ON files(content_id);
 CREATE INDEX IF NOT EXISTS idx_content_type ON content(type);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires);

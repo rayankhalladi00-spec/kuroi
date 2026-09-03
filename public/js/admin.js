@@ -1,4 +1,7 @@
 let me = null;
+// Limites d'envoi (extensions et tailles), lues une fois auprès du serveur
+// pour que le formulaire les affiche sans les dupliquer côté client.
+let limits = null;
 
 /* --------------------------------- modale --------------------------------- */
 
@@ -292,11 +295,25 @@ function contentForm(c = {}) {
     </div>
     <div class="field"><label>Titre</label><input id="cTitle" value="${v('title')}"></div>
     <div class="field"><label>Description</label><textarea id="cDesc">${v('description')}</textarea></div>
-    <div class="field"><label>Affiche (URL d'image)</label><input id="cPoster" value="${v('poster_url')}"></div>
-    <div class="field"><label>Lien vidéo — film/série (partage Google Drive ou URL directe)</label>
-      <input id="cVideo" value="${v('video_url')}" placeholder="https://drive.google.com/file/d/…/view"></div>
-    <div class="field"><label>Lien externe — jeu (dossier Drive)</label>
-      <input id="cExt" value="${v('external_url')}" placeholder="https://drive.google.com/drive/folders/…"></div>
+    <div class="field">
+      <label>Affiche</label>
+      <div id="cPosterPreview" class="poster-preview">
+        ${c.poster_url ? `<img src="${esc(c.poster_url)}" alt="">` : '<span class="hint">Aucune affiche</span>'}
+      </div>
+      <input type="file" id="cPosterFile" accept="${limits ? limits.imageExtensions.join(',') : 'image/*'}">
+      <small class="hint">
+        ${limits ? `${limits.imageExtensions.join(', ')} — max ${Math.round(limits.maxImageSize / 1024 / 1024)} Mo. ` : ''}Envoyée après l'enregistrement.
+      </small>
+      <input id="cPoster" type="hidden" value="${v('poster_url')}">
+    </div>
+    <div class="field">
+      <label>Lecteur — film/série</label>
+      <textarea id="cVideo" rows="3"
+        placeholder="Colle ici le lien du lecteur, un partage Google Drive, ou tout le code d'intégration &lt;iframe …&gt;">${v('video_url')}</textarea>
+      <small class="hint">Le code d'intégration est accepté : seule l'adresse du lecteur est conservée.</small>
+    </div>
+    <div class="field"><label>Lien externe — jeu (facultatif)</label>
+      <input id="cExt" value="${v('external_url')}" placeholder="https://…"></div>
     <div class="field" style="display:flex;gap:10px">
       <div style="flex:1"><label>Année</label><input id="cYear" type="number" value="${v('year')}"></div>
       <div style="flex:2"><label>Genre</label><input id="cGenre" value="${v('genre')}"></div>
@@ -306,7 +323,57 @@ function contentForm(c = {}) {
         <input type="checkbox" id="cFeat" ${c.featured ? 'checked' : ''} style="width:auto">
         Mettre à la une (grande bannière d'accueil)
       </label>
+    </div>
+
+    <div class="field">
+      <label>Pièces jointes${limits ? ` (${limits.extensions.join(', ')} — max ${Math.round(limits.maxSize / 1024 / 1024)} Mo)` : ''}</label>
+      <div id="cFileList">${(c.files || []).filter((f) => f.kind !== 'poster').map(adminFileRow).join('') || '<small class="hint">Aucun fichier joint.</small>'}</div>
+      <input type="file" id="cFile" accept="${limits ? limits.extensions.join(',') : ''}" style="margin-top:10px">
+      <small class="hint">Le fichier est envoyé après l'enregistrement.</small>
     </div>`;
+}
+
+function adminFileRow(f) {
+  return `<div class="file-row admin" data-file="${f.id}">
+    <span class="file-name">${esc(f.original_name)}</span>
+    <span class="file-size">${formatSize(f.size)}</span>
+    <button class="btn btn-sm btn-danger" data-delfile="${f.id}">Retirer</button>
+  </div>`;
+}
+
+// Envoie un fichier choisi dans le formulaire, une fois le contenu enregistré
+// (l'identifiant du contenu est nécessaire pour le rattacher).
+async function sendFile(inputId, contentId, route) {
+  const file = document.getElementById(inputId)?.files?.[0];
+  if (!file) return null;
+
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`/api/admin/content/${contentId}/${route}`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    body: form, // pas de Content-Type manuel : le navigateur pose la frontière
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Envoi échoué (${res.status})`);
+  return data;
+}
+
+// Renvoie la liste des envois qui ont échoué, pour les signaler sans perdre
+// l'enregistrement du contenu lui-même, déjà réussi.
+async function sendPendingFiles(contentId) {
+  const problems = [];
+  for (const [input, route, label] of [
+    ['cPosterFile', 'poster', "l'affiche"],
+    ['cFile', 'files', 'la pièce jointe'],
+  ]) {
+    try {
+      await sendFile(input, contentId, route);
+    } catch (e) {
+      problems.push(`Envoi de ${label} : ${e.message}`);
+    }
+  }
+  return problems;
 }
 
 function readContentForm() {
@@ -323,6 +390,21 @@ function readContentForm() {
   };
 }
 
+// Le contenu est enregistré d'abord, les fichiers ensuite : ils ont besoin de
+// son identifiant. Si un envoi échoue, le contenu reste sauvegardé et on le
+// signale, plutôt que de tout perdre.
+function reportAfterSave(problems, notice) {
+  const messages = [...(notice ? [notice] : []), ...problems];
+  if (!messages.length) {
+    closeModal();
+    return;
+  }
+  openModal(problems.length ? 'Enregistré, avec un souci' : 'Enregistré',
+    messages.map((m) => `<p style="color:${problems.includes(m) ? '#ff8e93' : 'var(--warn)'}">${esc(m)}</p>`).join(''),
+    [{ label: 'Fermer', className: 'btn-primary', onClick: closeModal }]
+  );
+}
+
 function newContent() {
   openModal('Ajouter un titre', contentForm(), [
     { label: 'Annuler', onClick: closeModal },
@@ -332,9 +414,11 @@ function newContent() {
       onClick: async (b) => {
         b.disabled = true;
         try {
-          await api('/api/admin/content', { method: 'POST', body: readContentForm() });
-          closeModal(); loadContent(); loadStats();
-        } catch (e) { fail(e); }
+          const r = await api('/api/admin/content', { method: 'POST', body: readContentForm() });
+          const problems = await sendPendingFiles(r.id);
+          loadContent(); loadStats();
+          reportAfterSave(problems, r.notice);
+        } catch (e) { b.disabled = false; fail(e); }
       },
     },
   ]);
@@ -353,9 +437,11 @@ function contentAction(act, id) {
         onClick: async (b) => {
           b.disabled = true;
           try {
-            await api('/api/admin/content/' + id, { method: 'PUT', body: readContentForm() });
-            closeModal(); loadContent();
-          } catch (e) { fail(e); }
+            const r = await api('/api/admin/content/' + id, { method: 'PUT', body: readContentForm() });
+            const problems = await sendPendingFiles(id);
+            loadContent();
+            reportAfterSave(problems, r.notice);
+          } catch (e) { b.disabled = false; fail(e); }
         },
       },
     ]);
@@ -416,6 +502,21 @@ document.getElementById('contentBody').addEventListener('click', (e) => {
   if (b) contentAction(b.dataset.cact, Number(b.dataset.id));
 });
 
+// Retirer une pièce jointe depuis le formulaire de contenu.
+document.getElementById('modalBody').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-delfile]');
+  if (!b) return;
+  b.disabled = true;
+  try {
+    await api('/api/admin/files/' + b.dataset.delfile, { method: 'DELETE' });
+    b.closest('.file-row').remove();
+    loadContent();
+  } catch (err) {
+    b.disabled = false;
+    fail(err);
+  }
+});
+
 document.getElementById('newUserBtn').addEventListener('click', newUser);
 document.getElementById('newContentBtn').addEventListener('click', newContent);
 
@@ -431,5 +532,6 @@ document.getElementById('userSearch').addEventListener('input', () => {
   if (me.role !== 'admin') return void (location.href = '/');
   document.getElementById('nav').innerHTML = renderNav(me, '');
   wireLogout();
+  limits = await api('/api/admin/upload-limits').catch(() => null);
   await Promise.all([loadStats(), loadUsers()]);
 })();

@@ -650,6 +650,48 @@ async function waitForServer(proc) {
       r = await alice('POST', '/api/auth/avatar', { avatar: null });
       check('photo retirée', r.status === 200 && r.data.avatar === null);
 
+      // Cycle complet d'une photo envoyée. Ce chemin n'était pas testé, et il
+      // échouait en production : les envois allaient dans public/, que le
+      // service n'a pas le droit d'écrire (ProtectSystem=strict).
+      {
+        const png = Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+          'base64'
+        );
+        const form = new FormData();
+        form.append('file', new Blob([png], { type: 'image/png' }), 'photo.png');
+        r = await admin('POST', '/api/admin/avatars', form);
+        check('photo envoyée depuis l’administration', r.status === 200, JSON.stringify(r.data));
+
+        const ajoutee = r.data.avatars?.find((a) => a.url.startsWith('/api/avatars/'));
+        check('elle est rangée hors de l’arborescence statique', !!ajoutee,
+          JSON.stringify(r.data.avatars?.slice(-1)));
+
+        if (ajoutee) {
+          const servie = await fetch(BASE + ajoutee.url);
+          check('elle est bien servie', servie.status === 200 &&
+            (servie.headers.get('content-type') || '').startsWith('image/'),
+            `HTTP ${servie.status}`);
+
+          check('un membre peut la choisir',
+            (await alice('POST', '/api/auth/avatar', { avatar: ajoutee.id })).status === 200);
+
+          r = await admin('DELETE', '/api/admin/avatars/' + encodeURIComponent(ajoutee.id));
+          check('elle se supprime', r.status === 200);
+          check('elle ne figure plus dans le jeu',
+            !r.data.avatars.some((a) => a.id === ajoutee.id));
+        }
+
+        // Une photo livrée avec le code vit dans un dossier en lecture seule :
+        // la supprimer doit être refusé proprement, pas planter.
+        const fournie = (await admin('GET', '/api/admin/avatars')).data.avatars
+          .find((a) => a.url.startsWith('/img/avatars/'));
+        if (fournie) {
+          check('une photo livrée avec le site n’est pas supprimable',
+            (await admin('DELETE', '/api/admin/avatars/' + fournie.id)).status === 400);
+        }
+      }
+
       await admin('DELETE', '/api/admin/content/' + serie);
     }
 

@@ -134,6 +134,15 @@ app.get('/api/health', (req, res) =>
   res.json({ ok: true, startedAt: STARTED_AT, assets: ASSET_STAMP })
 );
 
+// Photos de profil envoyees depuis l'administration. Elles vivent dans data/,
+// hors de l'arborescence statique : le service n'a le droit d'ecrire que la.
+app.get('/api/avatars/:file', (req, res) => {
+  const nom = path.basename(req.params.file); // jamais de chemin remontant
+  res.sendFile(path.join(require('./lib/avatars').DIR_ENVOYEES, nom), (err) => {
+    if (err && !res.headersSent) res.status(404).end();
+  });
+});
+
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 app.use((req, res) => {

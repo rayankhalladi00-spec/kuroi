@@ -500,8 +500,16 @@ router.delete('/avatars/:id', (req, res) => {
   const photo = avatarsLib.list().find((a) => a.id === req.params.id);
   if (!photo) return res.status(404).json({ error: 'Photo introuvable' });
 
+  // Une photo livree avec le code vit dans un dossier en lecture seule : on ne
+  // peut pas la supprimer, et le dire vaut mieux qu'echouer avec EROFS.
+  const chemin = avatarsLib.cheminSupprimable(photo.id);
+  if (!chemin)
+    return res.status(400).json({
+      error: 'Cette photo est livrée avec le site et ne peut pas être supprimée.',
+    });
+
   try {
-    fsp.unlinkSync(path.join(AVATAR_DIR, path.basename(photo.url)));
+    fsp.unlinkSync(chemin);
   } catch (e) {
     if (e.code !== 'ENOENT') throw e;
   }

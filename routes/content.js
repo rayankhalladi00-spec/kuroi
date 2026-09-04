@@ -165,7 +165,7 @@ router.post('/:id/watched', (req, res) => {
 
   db.prepare(
     `INSERT INTO watched (user_id, content_id, episode_id) VALUES (?, ?, ?)
-     ON CONFLICT DO UPDATE SET watched_at = datetime('now')`
+     ON CONFLICT DO UPDATE SET watched_at = strftime('%Y-%m-%d %H:%M:%f', 'now')`
   ).run(req.user.id, item.id, episodeId);
   res.json({ ok: true, watched: true });
 });

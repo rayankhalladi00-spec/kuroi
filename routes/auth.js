@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { db, audit } = require('../db');
+const avatars = require('../lib/avatars');
 
 const router = express.Router();
 
@@ -92,7 +93,25 @@ router.get('/me', (req, res) => {
   if (req.bannedUser)
     return res.status(403).json({ error: 'Compte banni', reason: req.bannedUser.ban_reason });
   if (!req.user) return res.status(401).json({ error: 'Non connecté' });
-  res.json({ user: req.user });
+  res.json({ user: { ...req.user, avatarUrl: avatars.urlFor(req.user.avatar) } });
+});
+
+// Jeu de photos disponibles. Volontairement fige : pas de televersement, donc
+// pas une image par compte a stocker sur le serveur.
+router.get('/avatars', (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Connexion requise' });
+  res.json({ avatars: avatars.list(), current: req.user.avatar || null });
+});
+
+router.post('/avatar', (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Connexion requise' });
+
+  const id = req.body.avatar === null || req.body.avatar === '' ? null : String(req.body.avatar || '');
+  if (id !== null && !avatars.exists(id))
+    return res.status(400).json({ error: 'Cette photo ne fait pas partie du choix proposé.' });
+
+  db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(id, req.user.id);
+  res.json({ ok: true, avatar: id, avatarUrl: avatars.urlFor(id) });
 });
 
 router.post('/change-password', (req, res) => {

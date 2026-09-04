@@ -50,6 +50,8 @@ const ICONS = {
   plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
   check: '<polyline points="20 6 9 17 4 12"/>',
   inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.1z"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
+  user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
 };
 
@@ -147,6 +149,13 @@ function requireLogin(user) {
 
 /* -------------------------------- navigation ------------------------------- */
 
+// La photo si le membre en a choisi une, son initiale sinon.
+function avatarHtml(user, cls = '') {
+  return user.avatarUrl
+    ? `<img class="avatar-img ${cls}" src="${esc(user.avatarUrl)}" alt="">`
+    : `<span class="avatar-initial ${cls}">${esc(user.username[0].toUpperCase())}</span>`;
+}
+
 function renderNav(user, active) {
   const links = [
     ['/', 'Accueil', 'home'],
@@ -154,6 +163,7 @@ function renderNav(user, active) {
     ['/?f=serie', 'Séries', 'tv'],
     ['/?f=jeu', 'Jeux', 'game'],
     ['/idees.html', 'Boîte à idées', 'idea'],
+    ['/historique.html', 'Historique', 'clock'],
   ];
   return `
     <nav class="nav">
@@ -167,12 +177,75 @@ function renderNav(user, active) {
       <div class="nav-right">
         <button class="icon-btn" id="themeBtn" type="button" aria-label="Changer de thème"></button>
         ${user.role === 'admin' ? '<a href="/admin" class="btn btn-sm btn-ghost">Admin</a>' : ''}
-        <button class="icon-btn" id="logoutBtn" type="button" aria-label="Se déconnecter" title="Se déconnecter">
-          ${icon('logout')}
-        </button>
-        <div class="avatar" title="${esc(user.username)}">${esc(user.username[0].toUpperCase())}</div>
+        <div class="profile">
+          <button class="avatar" id="profileBtn" type="button"
+                  aria-haspopup="menu" aria-expanded="false" aria-label="Mon profil">
+            ${avatarHtml(user)}
+          </button>
+          <div class="menu" id="profileMenu" hidden role="menu">
+            <div class="menu-head">
+              ${avatarHtml(user, 'menu-avatar')}
+              <div>
+                <b>${esc(user.username)}</b>
+                <small>${esc(user.email)}</small>
+              </div>
+            </div>
+            <a class="menu-item" role="menuitem" href="/historique.html">${icon('clock')} Historique</a>
+            <button class="menu-item" role="menuitem" id="avatarBtn" type="button">
+              ${icon('user')} Changer de photo
+            </button>
+            <button class="menu-item danger" role="menuitem" id="logoutBtn" type="button">
+              ${icon('logout')} Se déconnecter
+            </button>
+          </div>
+        </div>
       </div>
     </nav>`;
+}
+
+// Choix de la photo parmi le jeu propose. Aucun televersement : le serveur
+// n'accepte qu'un identifiant deja present dans public/img/avatars/.
+async function choisirAvatar() {
+  const { avatars, current } = await api('/api/auth/avatars');
+
+  const fond = document.createElement('div');
+  fond.className = 'modal-backdrop show';
+  fond.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Choisir une photo">
+      <h3>Choisir une photo</h3>
+      ${
+        avatars.length
+          ? `<div class="avatar-grid">
+               ${avatars
+                 .map(
+                   (a) => `<button class="avatar-choice ${a.id === current ? 'on' : ''}"
+                                   data-avatar="${esc(a.id)}" type="button" aria-label="${esc(a.id)}">
+                             <img src="${esc(a.url)}" alt="">
+                           </button>`
+                 )
+                 .join('')}
+             </div>
+             <button class="btn btn-sm btn-ghost" data-avatar="" type="button"
+                     style="margin-top:14px">Aucune photo</button>`
+          : '<p class="hint">Aucune photo n’est disponible pour l’instant.</p>'
+      }
+      <div class="modal-actions"><button class="btn" data-fermer type="button">Fermer</button></div>
+    </div>`;
+  document.body.appendChild(fond);
+
+  const fermer = () => fond.remove();
+  fond.addEventListener('click', async (e) => {
+    if (e.target === fond || e.target.closest('[data-fermer]')) return fermer();
+
+    const choix = e.target.closest('[data-avatar]');
+    if (!choix) return;
+    try {
+      await api('/api/auth/avatar', { method: 'POST', body: { avatar: choix.dataset.avatar || null } });
+      location.reload(); // la photo apparaît partout où la barre est rendue
+    } catch (err) {
+      alert(err.message);
+    }
+  });
 }
 
 // À appeler après avoir injecté la barre de navigation.
@@ -182,6 +255,29 @@ function wireNav() {
   document.getElementById('themeBtn')?.addEventListener('click', () => {
     applyTheme(currentTheme() === 'light' ? 'dark' : 'light');
   });
+
+  // Menu de profil : ouverture, fermeture au clic extérieur et à Échap.
+  const btn = document.getElementById('profileBtn');
+  const menu = document.getElementById('profileMenu');
+  if (btn && menu) {
+    const fermer = () => {
+      menu.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    };
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+      btn.setAttribute('aria-expanded', String(!menu.hidden));
+    });
+    document.addEventListener('click', (e) => {
+      if (!menu.hidden && !menu.contains(e.target)) fermer();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') fermer();
+    });
+  }
+
+  document.getElementById('avatarBtn')?.addEventListener('click', choisirAvatar);
 
   document.getElementById('logoutBtn')?.addEventListener('click', async () => {
     await api('/api/auth/logout', { method: 'POST' }).catch(() => {});

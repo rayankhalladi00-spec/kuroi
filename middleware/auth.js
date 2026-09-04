@@ -6,7 +6,7 @@ function loadUser(req, res, next) {
   req.user = null;
   if (req.session?.userId) {
     const u = db
-      .prepare('SELECT id, username, email, role, banned, ban_reason FROM users WHERE id = ?')
+      .prepare('SELECT id, username, email, role, banned, ban_reason, avatar FROM users WHERE id = ?')
       .get(req.session.userId);
     if (!u) {
       req.session.destroy(() => {});

@@ -1087,3 +1087,141 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   z-index: 2;
 }
 .resume-bar span { display: block; height: 100%; background: var(--accent); }
+
+/* Le bouton « vu » d'un episode porte desormais un libelle : une coche seule
+   passait inapercue, et on ne devinait pas qu'elle etait cliquable. */
+.ep-seen {
+  width: auto;
+  min-width: 74px;
+  padding: 0 12px;
+  gap: 6px;
+  flex-direction: column;
+  font-size: 10px;
+  font-weight: 600;
+}
+.ep-seen-label { text-transform: uppercase; letter-spacing: .05em; }
+.ep.seen .ep-seen { background: color-mix(in srgb, var(--ok) 10%, transparent); }
+
+#seenHint { max-width: 70ch; margin: 8px 0 0; }
+
+/* ------------------------ profil, photo et historique ---------------------- */
+
+.profile { position: relative; }
+
+.avatar {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  background: none;
+  display: grid;
+  place-items: center;
+  flex: none;
+  transition: border-color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+.avatar:hover { border-color: var(--line-strong); }
+.avatar:active { transform: scale(.94); }
+
+.avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-initial {
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  background: linear-gradient(140deg, var(--accent), #7a0610);
+  color: #fff; font-weight: 700; font-size: 14px;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  min-width: 232px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 7px;
+  z-index: 70;
+  animation: pop-in var(--fast) var(--ease) both;
+}
+.menu-head {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 10px 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 6px;
+}
+.menu-head b { display: block; font-size: 14px; }
+.menu-head small { color: var(--text-muted); font-size: 12px; word-break: break-all; }
+.menu-avatar { width: 38px; height: 38px; border-radius: 9px; flex: none; }
+
+.menu-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 10px 11px;
+  border: 0; border-radius: 7px;
+  background: none;
+  color: var(--text);
+  font: inherit; font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--fast) var(--ease);
+}
+.menu-item:hover { background: var(--bg-hover); }
+.menu-item.danger { color: var(--danger); }
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 11px;
+}
+.avatar-choice {
+  aspect-ratio: 1;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0;
+  overflow: hidden;
+  background: none;
+  cursor: pointer;
+  transition: border-color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+.avatar-choice:hover { transform: scale(1.06); border-color: var(--line-strong); }
+.avatar-choice.on { border-color: var(--accent); }
+.avatar-choice img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.hist {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
+  margin-bottom: 9px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  transition: border-color var(--fast) var(--ease);
+}
+.hist:hover { border-color: var(--line-strong); }
+.hist-main { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+.hist-poster {
+  width: 44px; height: 62px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  background-size: cover; background-position: center;
+  flex: none;
+  display: grid; place-items: center;
+  color: var(--text-faint);
+}
+.hist-body { min-width: 0; }
+.hist-title { display: block; font-weight: 600; font-size: 14px; }
+.hist-sub { display: block; color: var(--text-muted); font-size: 13px; margin-top: 3px; }
+.hist-when {
+  color: var(--text-faint);
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 620px) {
+  .hist { flex-wrap: wrap; }
+  .hist-when { order: 3; margin-left: 58px; }
+}

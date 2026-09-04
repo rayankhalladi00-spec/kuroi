@@ -488,6 +488,61 @@ async function waitForServer(proc) {
       await admin('DELETE', '/api/admin/content/' + serie);
     }
 
+    console.log('\n— Historique et photo de profil');
+    {
+      const serie = (await admin('POST', '/api/admin/content', { type: 'serie', title: 'Histo Test' })).data.id;
+      const e1 = (await admin('POST', `/api/admin/content/${serie}/episodes`,
+        { season: 1, number: 1, title: 'Un', video_url: 'https://lecteur.example.com/h1' })).data.episode.id;
+
+      check('historique vide au départ', (await alice('GET', '/api/history')).data.history.length === 0);
+
+      await alice('POST', `/api/content/${serie}/watched`, { episodeId: e1, watched: true });
+      r = await alice('GET', '/api/history');
+      check('l’épisode vu entre dans l’historique', r.data.history.length === 1, JSON.stringify(r.data));
+      check('l’historique porte le titre et l’épisode',
+        r.data.history[0].title === 'Histo Test' && r.data.history[0].number === 1);
+      check('l’historique est horodaté',
+        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(r.data.history[0].watched_at || ''),
+        r.data.history[0].watched_at);
+
+      check('l’historique ne fuit pas d’un compte à l’autre',
+        (await admin('GET', '/api/history')).data.history.length === 0);
+
+      r = await alice('DELETE', `/api/history?contentId=${serie}&episodeId=${e1}`);
+      check('une entrée se retire', r.status === 200);
+      check('l’épisode repasse en non vu',
+        (await alice('GET', '/api/content/' + serie)).data.item.episodes[0].watched === false);
+      check('retirer deux fois répond 404',
+        (await alice('DELETE', `/api/history?contentId=${serie}&episodeId=${e1}`)).status === 404);
+
+      await alice('POST', `/api/content/${serie}/watched`, { episodeId: e1, watched: true });
+      await alice('POST', `/api/content/${filmId}/watched`, { watched: true });
+      r = await alice('DELETE', '/api/history/all');
+      check('tout effacer vide l’historique',
+        r.data.supprimees === 2 && (await alice('GET', '/api/history')).data.history.length === 0);
+
+      // Photo de profil : jeu figé, aucun téléversement.
+      r = await alice('GET', '/api/auth/avatars');
+      check('le jeu de photos est proposé', r.status === 200 && r.data.avatars.length > 0,
+        JSON.stringify(r.data).slice(0, 120));
+      const photo = r.data.avatars[0].id;
+
+      check('photo hors du jeu refusée',
+        (await alice('POST', '/api/auth/avatar', { avatar: '../../etc/passwd' })).status === 400);
+      check('photo inventée refusée',
+        (await alice('POST', '/api/auth/avatar', { avatar: 'nexiste-pas' })).status === 400);
+
+      r = await alice('POST', '/api/auth/avatar', { avatar: photo });
+      check('photo choisie', r.status === 200 && r.data.avatar === photo);
+      check('la photo revient dans le profil',
+        (await alice('GET', '/api/auth/me')).data.user.avatarUrl?.includes(photo));
+
+      r = await alice('POST', '/api/auth/avatar', { avatar: null });
+      check('photo retirée', r.status === 200 && r.data.avatar === null);
+
+      await admin('DELETE', '/api/admin/content/' + serie);
+    }
+
     console.log('\n— Boîte à idées');
     {
       check('anonyme rejeté', (await anon('GET', '/api/suggestions')).status === 401);

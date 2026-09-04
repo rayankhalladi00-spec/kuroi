@@ -39,6 +39,10 @@ CREATE TABLE IF NOT EXISTS users (
   role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin')),
   banned        INTEGER NOT NULL DEFAULT 0,
   ban_reason    TEXT,
+  -- Identifiant d'une photo parmi un jeu fige (public/img/avatars/).
+  -- Volontairement pas de televersement : chaque membre choisit dans la liste,
+  -- ce qui evite de stocker autant d'images que de comptes sur le serveur.
+  avatar        TEXT,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   last_login_at TEXT
 );
@@ -126,7 +130,9 @@ CREATE TABLE IF NOT EXISTS watched (
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   content_id INTEGER NOT NULL REFERENCES content(id) ON DELETE CASCADE,
   episode_id INTEGER REFERENCES episodes(id) ON DELETE CASCADE,
-  watched_at TEXT NOT NULL DEFAULT (datetime('now'))
+  -- Milliseconde et non seconde : deux episodes vus coup sur coup doivent
+  -- rester ordonnables dans l'historique.
+  watched_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now'))
 );
 
 -- Favoris : « ma liste » de chaque membre.
@@ -158,6 +164,18 @@ CREATE INDEX IF NOT EXISTS idx_content_type ON content(type);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires);
 `);
+
+// Migrations : CREATE TABLE IF NOT EXISTS ne touche pas une table existante.
+// Une colonne ajoutee apres coup doit l'etre explicitement, sinon la base de
+// production reste en arriere pendant que le code la reclame.
+function ensureColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (cols.some((c) => c.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  console.log(`Migration : colonne ${table}.${column} ajoutee.`);
+}
+
+ensureColumn('users', 'avatar', 'TEXT');
 
 function audit(actor, action, target, details) {
   db.prepare(

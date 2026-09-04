@@ -110,6 +110,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/content', require('./routes/content'));
 app.use('/api/files', require('./routes/files'));
 app.use('/api/suggestions', require('./routes/suggestions'));
+app.use('/api/history', require('./routes/history'));
 app.use('/api/admin', require('./routes/admin'));
 
 // Page admin protégée côté serveur, pas seulement côté client.

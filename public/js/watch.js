@@ -3,9 +3,19 @@ const app = document.getElementById('app');
 const SINGULAR = { film: 'Film', serie: 'Série', jeu: 'Jeu' };
 const TYPE_ICON = { film: 'film', serie: 'tv', jeu: 'game' };
 
+// Un lecteur externe vit dans une iframe d'un autre domaine : le navigateur
+// interdit d'y lire l'avancement. Impossible donc de savoir quand l'épisode est
+// réellement terminé. On compte à la place le temps passé sur la page, onglet
+// au premier plan, avant de marquer « vu ».
+const SEUIL_IFRAME_MS = 5 * 60 * 1000;
+// Pour un fichier vidéo servi par le site, on connaît vraiment la position de
+// lecture : on marque à 90 %, comme le font les plateformes.
+const SEUIL_VIDEO = 0.9;
+
 let item = null;
 let similar = [];
 let current = null; // épisode en cours, null pour un film
+let chrono = null;
 
 /* --------------------------------- lecteur --------------------------------- */
 
@@ -19,7 +29,7 @@ function playerHtml(url, kind) {
 
   if (kind === 'video') {
     return `<div class="player">
-      <video src="${esc(url)}" controls autoplay playsinline preload="metadata"></video>
+      <video id="filePlayer" src="${esc(url)}" controls autoplay playsinline preload="metadata"></video>
     </div>`;
   }
 
@@ -33,7 +43,81 @@ function playerHtml(url, kind) {
   </div>`;
 }
 
-// Episodes a plat, dans l'ordre saison puis numero : sert a la navigation.
+/* ------------------------ marquage « vu » automatique ---------------------- */
+
+function stopChrono() {
+  if (!chrono) return;
+  clearInterval(chrono.tick);
+  chrono = null;
+}
+
+// Cible du suivi : l'épisode en cours, ou le titre lui-même pour un film.
+function cibleCourante() {
+  return current || (item.type !== 'serie' ? item : null);
+}
+
+function startChrono() {
+  stopChrono();
+
+  const cible = cibleCourante();
+  if (!cible) return;
+  if (cible.watched) return majAstuce('');
+
+  const video = document.getElementById('filePlayer');
+  if (video) {
+    video.addEventListener('timeupdate', function surAvancement() {
+      if (video.duration && video.currentTime / video.duration >= SEUIL_VIDEO) {
+        video.removeEventListener('timeupdate', surAvancement);
+        marquer(cible, true);
+      }
+    });
+    majAstuce('Sera marqué comme vu à 90 % de la lecture.');
+    return;
+  }
+
+  if (!(current ? current.video_url : item.video_url)) return majAstuce('');
+
+  let ecoule = 0;
+  const tick = setInterval(() => {
+    if (document.visibilityState !== 'visible') return; // onglet en arrière-plan
+    ecoule += 1000;
+    if (ecoule >= SEUIL_IFRAME_MS) {
+      stopChrono();
+      marquer(cible, true);
+    }
+  }, 1000);
+  chrono = { tick };
+
+  majAstuce(
+    'Le lecteur vient d’un autre site : son avancement n’est pas lisible d’ici. Marqué comme vu après 5 minutes de lecture, ou à la main.'
+  );
+}
+
+function majAstuce(texte) {
+  const el = document.getElementById('seenHint');
+  if (el) el.textContent = texte;
+}
+
+async function marquer(cible, valeur) {
+  if (!cible) return;
+  const body = { watched: valeur };
+  if (cible !== item) body.episodeId = cible.id;
+  try {
+    const r = await api(`/api/content/${item.id}/watched`, { method: 'POST', body });
+    cible.watched = r.watched;
+    if (cible === item) majBouton(item);
+    else markSeen(cible.id, r.watched);
+    if (r.watched) {
+      stopChrono();
+      majAstuce('');
+    }
+  } catch {
+    /* le suivi n'est pas critique : la lecture continue */
+  }
+}
+
+/* --------------------------------- rendu ----------------------------------- */
+
 function ordered() {
   return [...(item.episodes || [])].sort((a, b) => a.season - b.season || a.number - b.number);
 }
@@ -42,6 +126,42 @@ function neighbours() {
   const all = ordered();
   const i = current ? all.findIndex((e) => e.id === current.id) : -1;
   return { prev: i > 0 ? all[i - 1] : null, next: i >= 0 && i < all.length - 1 ? all[i + 1] : null };
+}
+
+function boutonMarquer(cible) {
+  return `<button class="btn btn-sm ${cible.watched ? 'btn-primary' : ''}" id="markBtn" type="button"
+                  aria-pressed="${cible.watched ? 'true' : 'false'}">
+            ${icon('check')} ${cible.watched ? 'Vu — retirer' : 'Marquer comme vu'}
+          </button>`;
+}
+
+// Rafraîchit le bouton sans reconstruire le lecteur : sinon la lecture
+// repartirait de zéro à chaque changement d'état.
+function majBouton(cible) {
+  const b = document.getElementById('markBtn');
+  if (!b || !cible) return;
+  b.classList.toggle('btn-primary', cible.watched);
+  b.setAttribute('aria-pressed', String(cible.watched));
+  b.innerHTML = `${icon('check')} ${cible.watched ? 'Vu — retirer' : 'Marquer comme vu'}`;
+}
+
+function renderNav() {
+  const nav = document.getElementById('epNav');
+  if (!nav) return;
+  const cible = cibleCourante();
+
+  if (item.type !== 'serie') {
+    nav.innerHTML = cible ? boutonMarquer(cible) : '';
+    return;
+  }
+
+  const { prev, next } = neighbours();
+  const label = (e) => `S${e.season}E${e.number}`;
+  nav.innerHTML = [
+    prev ? `<button class="btn btn-sm" data-goto="${prev.id}" type="button">${icon('back')} ${label(prev)}</button>` : '',
+    cible ? boutonMarquer(cible) : '',
+    next ? `<button class="btn btn-sm btn-primary" data-goto="${next.id}" type="button">${label(next)} ${icon('play')}</button>` : '',
+  ].join('');
 }
 
 function renderPlayer() {
@@ -60,53 +180,9 @@ function renderPlayer() {
     el.classList.toggle('on', current && Number(el.dataset.ep) === current.id);
   });
 
-  const nav = document.getElementById('epNav');
-  if (nav) {
-    const { prev, next } = neighbours();
-    const label = (e) => `S${e.season}E${e.number}`;
-    nav.innerHTML = [
-      prev ? `<button class="btn btn-sm" data-goto="${prev.id}" type="button">${icon('back')} ${label(prev)}</button>` : '',
-      next ? `<button class="btn btn-sm btn-primary" data-goto="${next.id}" type="button">${label(next)} ${icon('play')}</button>` : '',
-    ].join('');
-  }
+  renderNav();
+  startChrono();
 }
-
-// Ouvrir un episode le marque comme vu : c'est le geste attendu, et cela
-// alimente la reprise de lecture sans rien demander au membre.
-async function play(ep) {
-  current = ep;
-  renderPlayer();
-  document.getElementById('playerBox').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  if (!ep.watched) {
-    try {
-      await api(`/api/content/${item.id}/watched`, { method: 'POST', body: { episodeId: ep.id, watched: true } });
-      ep.watched = true;
-      markSeen(ep.id, true);
-    } catch {
-      /* le suivi n'est pas critique : la lecture continue */
-    }
-  }
-}
-
-// Met a jour l'affichage d'un episode et le compteur de sa saison.
-function markSeen(episodeId, seen) {
-  const row = document.querySelector(`.ep[data-ep="${episodeId}"]`);
-  if (row) {
-    row.classList.toggle('seen', seen);
-    const b = row.querySelector('[data-seen]');
-    if (b) {
-      b.setAttribute('aria-pressed', String(seen));
-      b.setAttribute('aria-label', seen ? 'Marquer comme non vu' : 'Marquer comme vu');
-      b.title = seen ? 'Vu' : 'Marquer comme vu';
-    }
-  }
-  for (const [saison, eps] of seasons()) {
-    const chip = document.querySelector(`#seasonTabs [data-season="${saison}"] .chip-count`);
-    if (chip) chip.textContent = `${eps.filter((e) => e.watched).length}/${eps.length}`;
-  }
-}
-
-/* -------------------------------- épisodes --------------------------------- */
 
 function seasons() {
   const map = new Map();
@@ -128,15 +204,12 @@ function episodesHtml() {
     </section>`;
   }
 
-  // Les onglets s'affichent meme pour une seule saison : la structure du
-  // catalogue doit etre lisible d'emblee, sans dependre du nombre de saisons.
   const tabs = `<div class="filters" id="seasonTabs">
     ${list
       .map(([s, eps], i) => {
         const vus = eps.filter((e) => e.watched).length;
         return `<button class="chip ${i === 0 ? 'on' : ''}" data-season="${s}" type="button">
-                  Saison ${s}
-                  <span class="chip-count">${vus}/${eps.length}</span>
+                  Saison ${s}<span class="chip-count">${vus}/${eps.length}</span>
                 </button>`;
       })
       .join('')}
@@ -160,8 +233,9 @@ function episodesHtml() {
             </button>
             <button class="ep-seen" data-seen="${e.id}" type="button"
                     aria-pressed="${e.watched ? 'true' : 'false'}"
-                    aria-label="${e.watched ? 'Marquer comme non vu' : 'Marquer comme vu'}"
-                    title="${e.watched ? 'Vu' : 'Marquer comme vu'}">${icon('check')}</button>
+                    aria-label="${e.watched ? 'Marquer comme non vu' : 'Marquer comme vu'}">
+              ${icon('check')}<span class="ep-seen-label">${e.watched ? 'Vu' : 'Non vu'}</span>
+            </button>
           </div>`
           )
           .join('')}
@@ -175,8 +249,6 @@ function episodesHtml() {
     ${panels}
   </section>`;
 }
-
-/* ---------------------------------- fiche ---------------------------------- */
 
 function infoHtml() {
   const rows = [
@@ -217,7 +289,34 @@ function similarHtml() {
 
 /* ------------------------------- interactions ------------------------------ */
 
+function markSeen(episodeId, seen) {
+  const row = document.querySelector(`.ep[data-ep="${episodeId}"]`);
+  if (row) {
+    row.classList.toggle('seen', seen);
+    const b = row.querySelector('[data-seen]');
+    if (b) {
+      b.setAttribute('aria-pressed', String(seen));
+      b.setAttribute('aria-label', seen ? 'Marquer comme non vu' : 'Marquer comme vu');
+      const l = b.querySelector('.ep-seen-label');
+      if (l) l.textContent = seen ? 'Vu' : 'Non vu';
+    }
+  }
+  for (const [saison, eps] of seasons()) {
+    const chip = document.querySelector(`#seasonTabs [data-season="${saison}"] .chip-count`);
+    if (chip) chip.textContent = `${eps.filter((e) => e.watched).length}/${eps.length}`;
+  }
+  if (current && current.id === episodeId) majBouton(current);
+}
+
+function play(ep) {
+  current = ep;
+  renderPlayer();
+  document.getElementById('playerBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 function wirePage() {
+  const findEp = (id) => (item.episodes || []).find((x) => x.id === Number(id));
+
   document.getElementById('seasonTabs')?.addEventListener('click', (e) => {
     const b = e.target.closest('[data-season]');
     if (!b) return;
@@ -226,8 +325,6 @@ function wirePage() {
       p.hidden = p.dataset.season !== b.dataset.season;
     });
   });
-
-  const findEp = (id) => (item.episodes || []).find((x) => x.id === Number(id));
 
   document.querySelectorAll('.ep-open').forEach((el) => {
     el.addEventListener('click', () => {
@@ -242,46 +339,29 @@ function wirePage() {
       const ep = findEp(el.dataset.seen);
       if (!ep) return;
       el.disabled = true;
-      try {
-        const r = await api(`/api/content/${item.id}/watched`, {
-          method: 'POST',
-          body: { episodeId: ep.id },
-        });
-        ep.watched = r.watched;
-        markSeen(ep.id, r.watched);
-      } catch {
-        /* reseau indisponible : l'etat reste inchange */
-      } finally {
-        el.disabled = false;
-      }
+      await marquer(ep, !ep.watched);
+      el.disabled = false;
     });
   });
 
-  document.getElementById('epNav')?.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-goto]');
-    if (!b) return;
-    const ep = findEp(b.dataset.goto);
-    if (ep) {
+  document.getElementById('epNav')?.addEventListener('click', async (e) => {
+    const aller = e.target.closest('[data-goto]');
+    if (aller) {
+      const ep = findEp(aller.dataset.goto);
+      if (!ep) return;
       play(ep);
-      // La saison affichee doit suivre l'episode lance.
       const tab = document.querySelector(`#seasonTabs [data-season="${ep.season}"]`);
       if (tab && !tab.classList.contains('on')) tab.click();
+      return;
     }
-  });
 
-  const seen = document.getElementById('seenBtn');
-  seen?.addEventListener('click', async () => {
-    seen.disabled = true;
-    try {
-      const r = await api(`/api/content/${item.id}/watched`, { method: 'POST' });
-      item.watched = r.watched;
-      seen.classList.toggle('btn-primary', r.watched);
-      seen.setAttribute('aria-pressed', String(r.watched));
-      seen.innerHTML = `${icon('check')} ${r.watched ? 'Vu' : 'Marquer comme vu'}`;
-    } catch {
-      /* reseau indisponible : l'etat reste inchange */
-    } finally {
-      seen.disabled = false;
+    const marque = e.target.closest('#markBtn');
+    if (marque) {
+      const cible = cibleCourante();
+      if (!cible) return;
+      marque.disabled = true;
+      await marquer(cible, !cible.watched);
+      marque.disabled = false;
     }
   });
 
@@ -322,27 +402,24 @@ function wirePage() {
 
   document.title = `${item.title} — Kuroi`;
 
-  // Point de depart d'une serie : l'episode demande par l'adresse (lien
+  // Point de départ d'une série : l'épisode demandé par l'adresse (lien
   // « Reprendre »), sinon le premier non vu, sinon le premier disponible.
   if (item.type === 'serie') {
     const demande = Number(new URLSearchParams(location.search).get('ep'));
     const dispo = (item.episodes || []).filter((e) => e.video_url);
-    current =
-      dispo.find((e) => e.id === demande) || dispo.find((e) => !e.watched) || dispo[0] || null;
+    current = dispo.find((e) => e.id === demande) || dispo.find((e) => !e.watched) || dispo[0] || null;
   }
 
-  const hero = item.poster_url
+  const affiche = item.poster_url
     ? `<div class="watch-poster" style="background-image:url('${esc(item.poster_url)}')"></div>`
     : `<div class="watch-poster placeholder">${icon(TYPE_ICON[item.type], { cls: 'icon-lg' })}</div>`;
 
+  // Ordre voulu : la fiche (titre et affiche), puis le lecteur, puis les épisodes.
   app.innerHTML =
     renderNav(user, '') +
     `<div class="watch-wrap">
-       <div id="playerBox"></div>
-       <div class="ep-nav" id="epNav"></div>
-
        <div class="watch-head">
-         ${hero}
+         ${affiche}
          <div class="watch-meta">
            <div class="hero-meta">
              ${icon(TYPE_ICON[item.type])}
@@ -358,19 +435,15 @@ function wirePage() {
                      aria-pressed="${item.favorite}">
                ${icon('heart')} ${item.favorite ? 'Dans ma liste' : 'Ma liste'}
              </button>
-             ${
-               item.type === 'serie'
-                 ? ''
-                 : `<button class="btn ${item.watched ? 'btn-primary' : ''}" id="seenBtn" type="button"
-                            aria-pressed="${item.watched}">
-                      ${icon('check')} ${item.watched ? 'Vu' : 'Marquer comme vu'}
-                    </button>`
-             }
              <a class="btn btn-ghost" href="/">${icon('back')} Catalogue</a>
            </div>
            ${infoHtml()}
          </div>
        </div>
+
+       <div id="playerBox"></div>
+       <div class="ep-nav" id="epNav"></div>
+       <p class="hint" id="seenHint"></p>
 
        ${episodesHtml()}
        ${item.files.length ? `<section class="section"><h2>Téléchargements</h2>${item.files.map(fileRow).join('')}</section>` : ''}

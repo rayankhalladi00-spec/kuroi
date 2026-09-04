@@ -118,6 +118,17 @@ CREATE TABLE IF NOT EXISTS suggestion_votes (
   PRIMARY KEY (suggestion_id, user_id)
 );
 
+-- Suivi de visionnage. Une ligne par membre et par titre vu :
+--  * un film ou une serie sans episode  -> episode_id NULL
+--  * un episode precis                  -> episode_id renseigne
+-- La ligne la plus recente d'une serie sert a proposer la reprise.
+CREATE TABLE IF NOT EXISTS watched (
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content_id INTEGER NOT NULL REFERENCES content(id) ON DELETE CASCADE,
+  episode_id INTEGER REFERENCES episodes(id) ON DELETE CASCADE,
+  watched_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Favoris : « ma liste » de chaque membre.
 CREATE TABLE IF NOT EXISTS favorites (
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -136,6 +147,13 @@ CREATE INDEX IF NOT EXISTS idx_files_content ON files(content_id);
 CREATE INDEX IF NOT EXISTS idx_episodes_content ON episodes(content_id, season, number);
 CREATE INDEX IF NOT EXISTS idx_suggestions_status ON suggestions(status, id DESC);
 CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
+-- SQLite considere deux NULL comme distincts dans une cle unique, ce qui
+-- laisserait s'empiler les lignes des films. COALESCE regle le probleme, et
+-- SQLite n'accepte une expression que dans un index, pas dans une contrainte.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_watched_unique
+  ON watched(user_id, content_id, COALESCE(episode_id, 0));
+CREATE INDEX IF NOT EXISTS idx_watched_user ON watched(user_id, watched_at DESC);
+CREATE INDEX IF NOT EXISTS idx_watched_content ON watched(user_id, content_id);
 CREATE INDEX IF NOT EXISTS idx_content_type ON content(type);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires);

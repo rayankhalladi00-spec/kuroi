@@ -1001,3 +1001,89 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .watch-head { grid-template-columns: 1fr; gap: 20px; }
   .watch-poster { max-width: 160px; }
 }
+
+/* ------------------------- suivi de visionnage ----------------------------- */
+
+.chip-count {
+  margin-left: 7px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Un episode : le corps ouvre le lecteur, le bouton a droite bascule « vu ». */
+.ep { display: flex; align-items: stretch; gap: 0; }
+
+.ep-open {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 13px 15px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ep-seen {
+  flex: none;
+  width: 46px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+.ep-seen:hover { color: var(--text); background: var(--bg-hover); }
+.ep.seen .ep-seen { color: var(--ok); }
+.ep.seen .ep-title { color: var(--text-muted); }
+.ep.seen .ep-num {
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  color: var(--ok);
+}
+
+.ep-nav {
+  display: flex;
+  gap: 9px;
+  justify-content: flex-end;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* Pastille de progression sur les cartes du catalogue. */
+.card-seen {
+  position: absolute;
+  top: 8px; left: 8px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  min-width: 26px; height: 26px;
+  padding: 0 7px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ok) 88%, black);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .4);
+}
+.card-seen.partial { background: color-mix(in srgb, var(--accent) 88%, black); }
+
+/* Barre de progression au bas de l'affiche, rangee « Reprendre ». */
+.resume-bar {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, .22);
+  z-index: 2;
+}
+.resume-bar span { display: block; height: 100%; background: var(--accent); }

@@ -24,6 +24,13 @@ function card(item) {
                 aria-label="${item.favorite ? 'Retirer de ma liste' : 'Ajouter à ma liste'}"
                 aria-pressed="${item.favorite ? 'true' : 'false'}">${icon('heart')}</button>
         <span class="card-play">${icon(item.type === 'jeu' ? 'download' : 'play')}</span>
+        ${
+          item.watched
+            ? `<span class="card-seen" title="Déjà vu">${icon('check')}</span>`
+            : item.type === 'serie' && item.watchedCount
+              ? `<span class="card-seen partial" title="${item.watchedCount} épisode(s) vu(s)">${item.watchedCount}/${item.episodeCount}</span>`
+              : ''
+        }
       </div>
       <div class="card-body">
         <div class="card-title">${esc(item.title)}</div>
@@ -32,6 +39,40 @@ function card(item) {
         }</div>
       </div>
     </article>`;
+}
+
+// Carte « Reprendre » : elle porte l'episode a lancer et y mene directement.
+function resumeCard(item) {
+  const poster = item.poster_url ? ` style="background-image:url('${esc(item.poster_url)}')"` : '';
+  const ep = item.resume;
+  const progression = item.episodeCount
+    ? Math.round((item.watchedCount / item.episodeCount) * 100)
+    : 0;
+  return `
+    <a class="card resume" href="/watch.html?id=${item.id}&ep=${ep.id}"
+       aria-label="Reprendre ${esc(item.title)} à la saison ${ep.season} épisode ${ep.number}">
+      <div class="card-img"${poster}>
+        ${item.poster_url ? '' : icon('tv', { cls: 'icon-lg' })}
+        <span class="card-play">${icon('play')}</span>
+        <span class="resume-bar"><span style="width:${progression}%"></span></span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${esc(item.title)}</div>
+        <div class="card-sub">S${ep.season} E${ep.number}${ep.title ? ' · ' + esc(ep.title) : ''}</div>
+      </div>
+    </a>`;
+}
+
+function resumeRow(items) {
+  if (!items.length) return '';
+  return `
+    <section class="row">
+      <div class="row-head">
+        <h2>Reprendre</h2>
+        <span class="row-count">${items.length}</span>
+      </div>
+      <div class="row-scroll stagger">${items.map(resumeCard).join('')}</div>
+    </section>`;
 }
 
 function row(title, items) {
@@ -104,6 +145,7 @@ function render(user) {
   let body;
   if (total) {
     body =
+      (!filter && !query ? resumeRow(data.reprendre || []) : '') +
       (!filter && !query ? row('Ma liste', favoris) : '') +
       groups.map(([type, items]) => row(LABELS[type], items)).join('');
   } else if (query) {

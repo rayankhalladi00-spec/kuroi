@@ -426,6 +426,68 @@ async function waitForServer(proc) {
     check('carol ne peut plus se connecter',
       (await client()('POST', '/api/auth/login', { identifier: 'carol', password: 'peu importe' })).status === 401);
 
+    console.log('\n— Suivi de visionnage');
+    {
+      const serie = (await admin('POST', '/api/admin/content', { type: 'serie', title: 'Suivi Test' })).data.id;
+      const eps = [];
+      for (const [s, n] of [[1, 1], [1, 2], [2, 1]]) {
+        const r = await admin('POST', `/api/admin/content/${serie}/episodes`, {
+          season: s, number: n, title: `S${s}E${n}`,
+          video_url: `https://lecteur.example.com/e/${s}-${n}`,
+        });
+        eps.push(r.data.episode.id);
+      }
+
+      r = await alice('GET', '/api/content/' + serie);
+      check('aucun épisode vu au départ', r.data.item.episodes.every((e) => !e.watched));
+      check('compteur de vus à zéro', r.data.item.watchedCount === 0);
+
+      r = await alice('POST', `/api/content/${serie}/watched`, { episodeId: eps[0], watched: true });
+      check('épisode marqué comme vu', r.status === 200 && r.data.watched === true);
+
+      r = await alice('GET', '/api/content/' + serie);
+      check('le vu est bien enregistré', r.data.item.episodes.find((e) => e.id === eps[0])?.watched === true);
+      check('compteur mis à jour', r.data.item.watchedCount === 1);
+
+      // Le suivi est propre a chaque membre.
+      r = await admin('GET', '/api/content/' + serie);
+      check('le suivi ne fuit pas d’un compte à l’autre', r.data.item.watchedCount === 0);
+
+      r = await alice('GET', '/api/content');
+      const reprise = r.data.reprendre.find((x) => x.id === serie);
+      check('la série apparaît dans « Reprendre »', !!reprise, JSON.stringify(r.data.reprendre));
+      check('l’épisode proposé est le suivant', reprise?.resume?.id === eps[1],
+        JSON.stringify(reprise?.resume));
+
+      // Vu le dernier episode d'une saison : la reprise doit passer a la suivante.
+      await alice('POST', `/api/content/${serie}/watched`, { episodeId: eps[1], watched: true });
+      r = await alice('GET', '/api/content');
+      check('la reprise franchit les saisons',
+        r.data.reprendre.find((x) => x.id === serie)?.resume?.id === eps[2]);
+
+      // Serie terminee : plus rien a reprendre.
+      await alice('POST', `/api/content/${serie}/watched`, { episodeId: eps[2], watched: true });
+      r = await alice('GET', '/api/content');
+      check('série terminée : plus de reprise', !r.data.reprendre.find((x) => x.id === serie));
+
+      // Bascule inverse.
+      r = await alice('POST', `/api/content/${serie}/watched`, { episodeId: eps[2] });
+      check('second clic retire le vu', r.data.watched === false);
+
+      check('épisode d’une autre série refusé',
+        (await alice('POST', `/api/content/${filmId}/watched`, { episodeId: eps[0] })).status === 400);
+
+      // Un film se marque sans episode.
+      r = await alice('POST', `/api/content/${filmId}/watched`);
+      check('film marqué comme vu', r.data.watched === true);
+      check('le film est marqué dans le catalogue',
+        (await alice('GET', '/api/content')).data.films.find((f) => f.id === filmId)?.watched === true);
+      r = await alice('POST', `/api/content/${filmId}/watched`);
+      check('film démarqué', r.data.watched === false);
+
+      await admin('DELETE', '/api/admin/content/' + serie);
+    }
+
     console.log('\n— Boîte à idées');
     {
       check('anonyme rejeté', (await anon('GET', '/api/suggestions')).status === 401);

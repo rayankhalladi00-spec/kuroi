@@ -38,23 +38,31 @@ function playerHtml(url, kind) {
   // réinjecte jamais le HTML fourni, on reconstruit une balise propre.
   const src = isDrive(url) ? driveEmbed(url) : url;
 
-  // Cette balise reste volontairement aussi nue qu'un code d'intégration collé
-  // tel quel, car c'est ainsi que ces lecteurs fonctionnent sur téléphone.
+  // Bac a sable retabli, mais « allow-top-navigation » reste ferme : c'est lui
+  // qui empeche un lecteur douteux de rediriger le visiteur hors du site. Tout
+  // le reste est ouvert, la version mobile de ces lecteurs ayant besoin des
+  // formulaires, du verrouillage d'orientation et des fenetres surgissantes.
   //
-  // Ni « sandbox », ni « allow ». Les deux ont été ajoutés puis retirés après
-  // avoir cassé la lecture sur iPhone :
+  // Il avait ete retire en cherchant pourquoi un lecteur echouait sur iPhone.
+  // Ce n'etait pas lui : le meme lecteur echoue aussi ouvert seul dans un
+  // onglet, sans iframe ni code de ce site.
   //
-  //  * sandbox : Safari iOS l'applique bien plus sévèrement que Chrome et
-  //    coupe l'accès au stockage du cadre ;
-  //  * allow : le préciser REMPLACE les permissions par défaut, donc tout ce
-  //    qui n'y est pas listé devient interdit. Un code collé n'en porte pas et
-  //    conserve les permissions par défaut.
-  //
-  // La protection de fond est ailleurs : la CSP n'autorise en cadre que les
-  // domaines réellement présents dans le catalogue, et seule l'adresse extraite
-  // est conservée — jamais le HTML fourni.
+  // Pas d'attribut « allow » en revanche. Le preciser REMPLACE les permissions
+  // par defaut : tout ce qui n'y figure pas devient interdit. Il ne protegeait
+  // de rien et ne pouvait que casser des lecteurs.
+  const bacASable = [
+    'allow-scripts',
+    'allow-same-origin',
+    'allow-forms',
+    'allow-presentation',
+    'allow-popups',
+    'allow-popups-to-escape-sandbox',
+    'allow-orientation-lock',
+  ].join(' ');
+
   return `<div class="player">
-    <iframe src="${esc(src)}" width="640" height="384" frameborder="0" scrolling="no" allowfullscreen></iframe>
+    <iframe src="${esc(src)}" width="640" height="384" frameborder="0" scrolling="no"
+            allowfullscreen sandbox="${bacASable}"></iframe>
   </div>
   <p class="player-fallback">
     Le lecteur reste noir ?

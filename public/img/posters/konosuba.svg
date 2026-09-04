@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" role="img" aria-label="Konosuba">
+  <defs>
+    <linearGradient id="f" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="hsl(200 62% 22%)"/>
+      <stop offset="1" stop-color="hsl(240 55% 9%)"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="600" fill="url(#f)"/>
+  <g fill="none" stroke="hsl(200 70% 60%)" stroke-opacity=".16" stroke-width="2">
+    <circle cx="330" cy="120" r="120"/>
+    <circle cx="60" cy="500" r="90"/>
+  </g>
+  <text x="200" y="300" text-anchor="middle" fill="#fff"
+        font-family="Bebas Neue, Impact, sans-serif" font-size="58" letter-spacing="2">
+    <tspan x="200" dy="0">KONOSUBA</tspan>
+  </text>
+  <rect x="150" y="377.8" width="100" height="3" fill="hsl(200 80% 58%)"/>
+</svg>

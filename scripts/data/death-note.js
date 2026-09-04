@@ -53,6 +53,47 @@ const titles = {
   ],
 };
 
-const synopses = {};
+// Résumés rédigés pour ce site à partir de faits vérifiés, jamais recopiés.
+const synopses = {
+  1: [
+    'Un lycéen brillant ramasse un carnet tombé du ciel : quiconque y voit son nom inscrit meurt. Son propriétaire, un dieu de la mort, vient voir ce qu’il en fera.',
+    'Les criminels meurent par centaines, et le monde nomme le coupable Kira. Interpol appelle à l’aide un détective que personne n’a jamais vu.',
+    'L se montre à la police japonaise et resserre son filet : Kira est au Japon, dans la région du Kantô, et il tue depuis un écran.',
+    'Le père de Light dirige l’enquête. Un agent du FBI le prend en filature, et Light le repère.',
+    'Dans un train, Light referme son piège sur l’agent Penber. Le FBI perd ses hommes au Japon.',
+    'La veuve de l’agent veut parler à la police. Elle a compris ce que personne d’autre n’a vu, et croise Light avant d’y arriver.',
+    'Une chaîne de télévision diffuse les messages d’un second Kira. Une jeune femme et une autre divinité de la mort entrent en scène.',
+    'L fait installer des caméras chez les Yagami. Light tue sous leur objectif sans qu’aucune image ne le trahisse.',
+    'Light entre à l’université. À la cérémonie, un étudiant se présente à lui sous un nom qui n’est pas le sien.',
+    'Un match de tennis entre les deux, puis une attaque cardiaque frappe le père de Light en plein commissariat.',
+    'Le second Kira menace la télévision. Un policier s’y rend seul et n’en revient pas.',
+    'L et Light dépouillent les enregistrements pour remonter au second Kira : une voix, une façon de tourner ses phrases.',
+    'Rendez-vous à Aoyama. Misa reconnaît Light dans la foule sans qu’il puisse la voir.',
+    'Misa se présente à Light. Rem la protège, et laisse entendre ce qu’elle fera si on lui fait du mal.',
+    'Misa est arrêtée et interrogée les yeux bandés. Pour se sauver, elle renonce à ses souvenirs.',
+    'Light demande lui-même à être enfermé. Sans carnet ni mémoire, les meurtres reprennent pourtant.',
+    'Libéré faute de preuves, Light reste enchaîné à L. L’enquête se tourne vers un groupe d’affaires.',
+    'Le groupe Yotsuba prospère à mesure que ses concurrents meurent. Aizawa quitte l’équipe.',
+    'Matsuda s’infiltre chez Yotsuba sous une fausse identité, et manque de peu d’y rester.',
+    'Micros et écoutes dans la salle de réunion : huit cadres désignent posément leurs prochaines victimes.',
+    'Misa approche Higuchi en se faisant passer pour une admiratrice, et cherche à lui arracher un aveu.',
+    'Higuchi se croit intouchable et négocie son immunité en direct à la télévision.',
+    'Poursuite nocturne. Rem se montre, et Higuchi comprend trop tard ce qu’il a échangé.',
+    'Higuchi arrêté, le carnet change de mains — et Light retrouve d’un coup tout ce qu’il avait oublié.',
+    'Sur un toit, Rem fait son choix. L comprend en un instant, et n’a pas le temps d’en dire plus.',
+    'Récapitulatif : de la première mort jusqu’à la disparition de L, comment Light a pris l’avantage.',
+    'Cinq ans plus tard, deux héritiers de L se dressent contre Kira, chacun de son côté. La sœur de Light est enlevée.',
+    'Échange dans le désert américain : la vie de Sayu contre un carnet.',
+    'Le père de Light donne l’assaut sur la planque de la mafia, au prix des yeux d’un dieu de la mort.',
+    'Le président des États-Unis cède. Near installe son équipe face à un Kira devenu institution.',
+    'Kira a désormais ses fidèles et sa télévision. Un procureur zélé se met à tuer en son nom.',
+    'Mikami reçoit le carnet, et Kira se choisit une porte-parole à l’antenne.',
+    'Near, Mikami, Takada, Mello : quatre pièces sur le même échiquier, et Misa au milieu.',
+    'Un agent de Near substitue un carnet à un autre, page après page, sans que Mikami s’en aperçoive.',
+    'Mello enlève Takada. L’opération tourne mal pour tout le monde.',
+    'Rendez-vous dans un entrepôt. Light écrit les noms de tous ceux qui lui font face.',
+    'Rien ne se passe. Le carnet était faux, et Light n’a plus rien pour se défendre.',
+  ],
+};
 
 module.exports = { meta, titles, synopses };

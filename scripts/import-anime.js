@@ -15,11 +15,28 @@ const { generer } = require('./make-poster');
 
 const DATA_DIR = path.join(__dirname, 'data');
 
+// Un fichier decrit soit une oeuvre (meta/titles/synopses), soit plusieurs
+// via un tableau `series` — pratique pour un lot de films, qui n'ont chacun
+// qu'une fiche a poser.
 function importer(fichier, dry) {
-  const { meta, titles, synopses } = require(path.resolve(fichier));
+  const mod = require(path.resolve(fichier));
+  if (Array.isArray(mod.series)) {
+    const total = { ajoutes: 0, majs: 0, nbEpisodes: 0, nbResumes: 0 };
+    for (const oeuvre of mod.series) {
+      const r = importerUne(oeuvre, fichier, dry);
+      for (const k of Object.keys(total)) total[k] += r[k];
+    }
+    return total;
+  }
+  return importerUne(mod, fichier, dry);
+}
+
+function importerUne({ meta, titles, synopses }, fichier, dry) {
   if (!meta?.title) throw new Error(`${fichier} : meta.title manquant.`);
 
+  const type = meta.type || 'serie';
   let serie = db.prepare('SELECT * FROM content WHERE title = ? COLLATE NOCASE').get(meta.title);
+  const existait = Boolean(serie);
 
   if (!serie) {
     // L'affiche n'est generee qu'a la creation : une vraie affiche posee
@@ -32,14 +49,32 @@ function importer(fichier, dry) {
       const info = db
         .prepare(
           `INSERT INTO content (type, title, description, year, genre, poster_url)
-           VALUES ('serie', ?, ?, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, ?)`
         )
-        .run(meta.title, meta.description ?? null, meta.year ?? null, meta.genre ?? null, affiche);
+        .run(type, meta.title, meta.description ?? null, meta.year ?? null, meta.genre ?? null, affiche);
       serie = db.prepare('SELECT * FROM content WHERE id = ?').get(Number(info.lastInsertRowid));
       audit(null, 'import_anime', `content#${serie.id}`, meta.title);
     }
-  } else if (serie.type !== 'serie') {
-    throw new Error(`« ${meta.title} » existe deja et n'est pas une serie.`);
+  } else {
+    // La fiche existe : on complete les champs vides sans ecraser ce qui a ete
+    // saisi a la main depuis /admin.
+    if (!dry) {
+      db.prepare(
+        `UPDATE content SET
+           description = COALESCE(description, ?),
+           year        = COALESCE(year, ?),
+           genre       = COALESCE(genre, ?)
+         WHERE id = ?`
+      ).run(meta.description ?? null, meta.year ?? null, meta.genre ?? null, serie.id);
+    }
+    if (serie.type === 'serie' && type !== 'serie')
+      throw new Error(`« ${meta.title} » est une serie en base mais ${type} dans le fichier.`);
+  }
+
+  // Un film ou un jeu n'a pas d'episodes : la fiche suffit.
+  if (!titles || !Object.keys(titles).length) {
+    console.log(`  ${meta.title.padEnd(34)}    —      fiche ${existait ? 'mise a jour' : 'creee'} (${type})`);
+    return { ajoutes: 0, majs: 0, nbEpisodes: 0, nbResumes: 0 };
   }
 
   const existants = serie.id

@@ -483,6 +483,15 @@ async function manageEpisodes(contentId) {
       </div>
     </div>
     <div class="field" style="margin-top:12px">
+      <label for="edSources-${e.id}">Autres lecteurs — un par ligne (facultatif)</label>
+      <textarea id="edSources-${e.id}" rows="3" spellcheck="false"
+                placeholder="Un second hébergeur, un troisième…">${esc((e.sources || []).map((s) => s.url).join('\n'))}</textarea>
+      <p class="hint" style="margin:5px 0 0">
+        Un hébergeur qui marche sur ordinateur peut échouer sur téléphone. En
+        proposer plusieurs laisse chacun basculer sur celui qui fonctionne.
+      </p>
+    </div>
+    <div class="field">
       <label for="edSynopsis-${e.id}">Résumé</label>
       <textarea id="edSynopsis-${e.id}" rows="2" maxlength="800">${esc(e.synopsis || '')}</textarea>
     </div>
@@ -617,10 +626,21 @@ async function manageEpisodes(contentId) {
             title: document.getElementById('edTitle-' + id).value,
             video_url: document.getElementById('edVideo-' + id).value,
             synopsis: document.getElementById('edSynopsis-' + id).value,
+            sources: document.getElementById('edSources-' + id).value,
           },
         });
         const i = episodes.findIndex((e) => e.id === Number(id));
-        if (i >= 0) episodes[i] = r.episode;
+        if (i >= 0) episodes[i] = { ...r.episode, sources: r.sources || [] };
+
+        // Une ligne refusée ne doit pas passer inaperçue : les autres ont été
+        // enregistrées, celle-ci non.
+        if (r.refuses?.length) {
+          show(
+            `Ligne${r.refuses.length > 1 ? 's' : ''} ${r.refuses.map((x) => x.ligne).join(', ')} ` +
+              `refusée${r.refuses.length > 1 ? 's' : ''} : ${r.refuses[0].message}`,
+            'warn'
+          );
+        }
         episodes.sort((a, b2) => a.season - b2.season || a.number - b2.number);
         document.getElementById('epList').innerHTML = listHtml(episodes);
         show(r.notice || `S${r.episode.season}E${r.episode.number} enregistré.`,

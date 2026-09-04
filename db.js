@@ -122,6 +122,21 @@ CREATE TABLE IF NOT EXISTS suggestion_votes (
   PRIMARY KEY (suggestion_id, user_id)
 );
 
+-- Lecteurs supplementaires d'un episode. Le premier lecteur reste dans
+-- episodes.video_url ; ceux-ci viennent en plus.
+--
+-- Raison d'etre : un hebergeur qui fonctionne sur ordinateur peut echouer sur
+-- telephone, sans qu'on puisse y faire quoi que ce soit depuis ce site. Offrir
+-- plusieurs sources laisse le membre basculer sur celle qui marche chez lui.
+CREATE TABLE IF NOT EXISTS episode_sources (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  episode_id INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+  label      TEXT,
+  url        TEXT NOT NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Suivi de visionnage. Une ligne par membre et par titre vu :
 --  * un film ou une serie sans episode  -> episode_id NULL
 --  * un episode precis                  -> episode_id renseigne
@@ -158,6 +173,7 @@ CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
 -- SQLite n'accepte une expression que dans un index, pas dans une contrainte.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_watched_unique
   ON watched(user_id, content_id, COALESCE(episode_id, 0));
+CREATE INDEX IF NOT EXISTS idx_sources_episode ON episode_sources(episode_id, position);
 CREATE INDEX IF NOT EXISTS idx_watched_user ON watched(user_id, watched_at DESC);
 CREATE INDEX IF NOT EXISTS idx_watched_content ON watched(user_id, content_id);
 CREATE INDEX IF NOT EXISTS idx_content_type ON content(type);

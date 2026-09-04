@@ -16,6 +16,7 @@ let item = null;
 let similar = [];
 let current = null; // épisode en cours, null pour un film
 let chrono = null;
+let indexSource = 0; // lecteur choisi pour l'episode en cours
 
 /* --------------------------------- lecteur --------------------------------- */
 
@@ -37,14 +38,6 @@ function playerHtml(url, kind) {
   // réinjecte jamais le HTML fourni, on reconstruit une balise propre.
   const src = isDrive(url) ? driveEmbed(url) : url;
 
-  // Le bac à sable garde « allow-top-navigation » fermé : c'est ce qui empêche
-  // un lecteur douteux de rediriger le visiteur hors du site. Le reste est
-  // ouvert, car la version mobile de ces lecteurs a besoin de formulaires, de
-  // verrouillage d'orientation et de fenêtres surgissantes pour démarrer —
-  // sans quoi elle reste noire alors que la même page marche sur ordinateur.
-  //
-  // La protection de fond n'est pas ici mais dans la CSP : seuls les domaines
-  // réellement utilisés par le catalogue peuvent être affichés.
   // Pas d'attribut « sandbox » sur les lecteurs externes.
   //
   // Il en portait un, et le lecteur echouait sur iPhone en affichant sa propre
@@ -99,7 +92,7 @@ function startChrono() {
     return;
   }
 
-  if (!(current ? current.video_url : item.video_url)) return majAstuce('');
+  if (!sourceCourante()) return majAstuce('');
 
   let ecoule = 0;
   const tick = setInterval(() => {
@@ -141,6 +134,26 @@ async function marquer(cible, valeur) {
 }
 
 /* --------------------------------- rendu ----------------------------------- */
+
+// Le lecteur principal vit dans video_url, les autres dans sources. On les
+// presente comme une seule liste numerotee.
+function sourcesDe(cible) {
+  if (!cible) return [];
+  const principal = cible.video_url
+    ? [{ label: 'Lecteur 1', url: cible.video_url, player: cible.player }]
+    : [];
+  const autres = (cible.sources || []).map((s, i) => ({
+    label: s.label || `Lecteur ${i + 2}`,
+    url: s.url,
+    player: s.player,
+  }));
+  return [...principal, ...autres];
+}
+
+function sourceCourante() {
+  const liste = sourcesDe(cibleCourante());
+  return liste[indexSource] || liste[0] || null;
+}
 
 function ordered() {
   return [...(item.episodes || [])].sort((a, b) => a.season - b.season || a.number - b.number);
@@ -188,10 +201,31 @@ function renderEpNav() {
   ].join('');
 }
 
+function renderSelecteur() {
+  const box = document.getElementById('sourceTabs');
+  if (!box) return;
+  const liste = sourcesDe(cibleCourante());
+
+  // Un seul lecteur : pas de selecteur, il n'y aurait rien a choisir.
+  box.innerHTML =
+    liste.length > 1
+      ? liste
+          .map(
+            (s, i) =>
+              `<button class="chip ${i === indexSource ? 'on' : ''}" data-source="${i}" type="button">
+                 ${esc(s.label)}
+               </button>`
+          )
+          .join('')
+      : '';
+}
+
 function renderPlayer() {
-  const url = current ? current.video_url : item.video_url;
-  const kind = current ? current.player : item.player;
+  const source = sourceCourante();
+  const url = source?.url || null;
+  const kind = source?.player || null;
   document.getElementById('playerBox').innerHTML = playerHtml(url, kind);
+  renderSelecteur();
 
   const now = document.getElementById('nowPlaying');
   if (now) {
@@ -364,6 +398,7 @@ function markSeen(episodeId, seen, majBarre = true) {
 
 function play(ep) {
   current = ep;
+  indexSource = 0; // chaque episode repart sur son premier lecteur
   renderPlayer();
   document.getElementById('playerBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -423,6 +458,13 @@ function wirePage() {
     } catch (err) {
       b.disabled = false;
     }
+  });
+
+  document.getElementById('sourceTabs')?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-source]');
+    if (!b) return;
+    indexSource = Number(b.dataset.source);
+    renderPlayer();
   });
 
   document.getElementById('epNav')?.addEventListener('click', async (e) => {
@@ -522,6 +564,7 @@ function wirePage() {
          </div>
        </div>
 
+       <div class="filters" id="sourceTabs"></div>
        <div id="playerBox"></div>
        <div class="ep-nav" id="epNav"></div>
        <p class="hint" id="seenHint"></p>

@@ -12,6 +12,10 @@ const listFiles = db.prepare(
   "SELECT id, original_name, size FROM files WHERE content_id = ? AND kind = 'attachment' ORDER BY id"
 );
 
+const listSources = db.prepare(
+  'SELECT id, label, url FROM episode_sources WHERE episode_id = ? ORDER BY position, id'
+);
+
 const listEpisodes = db.prepare(
   `SELECT id, season, number, title, synopsis, video_url
    FROM episodes WHERE content_id = ? ORDER BY season, number`
@@ -38,6 +42,9 @@ function decorate(item, favIds, seen, withEpisodes = false) {
         ...e,
         player: playerKind(e.video_url),
         watched: seen.episodes.has(e.id),
+        // Chaque source porte son propre type de lecteur : un épisode peut
+        // mélanger un fichier vidéo et des lecteurs externes.
+        sources: listSources.all(e.id).map((s) => ({ ...s, player: playerKind(s.url) })),
       }));
   }
   return item;

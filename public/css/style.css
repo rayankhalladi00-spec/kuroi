@@ -1318,3 +1318,7 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   color: var(--text-muted);
 }
 .player-fallback a { color: var(--accent); }
+
+/* Sélecteur de lecteur, au-dessus de la vidéo. */
+#sourceTabs { margin-bottom: 10px; }
+#sourceTabs:empty { display: none; }

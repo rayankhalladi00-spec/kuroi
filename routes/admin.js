@@ -305,11 +305,18 @@ function readEpisode(body, existing = {}) {
 }
 
 router.get('/content/:id/episodes', (req, res) => {
-  res.json({
-    episodes: db
-      .prepare(`SELECT ${EPISODE_COLS} FROM episodes WHERE content_id = ? ORDER BY season, number`)
-      .all(req.params.id),
-  });
+  const episodes = db
+    .prepare(`SELECT ${EPISODE_COLS} FROM episodes WHERE content_id = ? ORDER BY season, number`)
+    .all(req.params.id);
+
+  // Les lecteurs supplémentaires accompagnent chaque épisode : le formulaire
+  // d'édition doit pouvoir les réafficher tels quels.
+  const sources = db.prepare(
+    'SELECT id, label, url FROM episode_sources WHERE episode_id = ? ORDER BY position, id'
+  );
+  for (const e of episodes) e.sources = sources.all(e.id);
+
+  res.json({ episodes });
 });
 
 router.post('/content/:id/episodes', (req, res) => {
@@ -375,13 +382,52 @@ router.put('/episodes/:id', (req, res) => {
             synopsis = @synopsis, video_url = @video_url WHERE id = @id`
   ).run({ ...parsed.episode, id: existing.id });
 
+  // Lecteurs supplémentaires : une adresse ou un code d'intégration par ligne.
+  // La liste envoyée remplace l'ancienne, ce qui rend la modification simple à
+  // raisonner — on ne bricole pas des ajouts et des retraits ligne par ligne.
+  const refuses = [];
+  if (req.body.sources !== undefined) {
+    const lignes = String(req.body.sources || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    db.exec('BEGIN');
+    try {
+      db.prepare('DELETE FROM episode_sources WHERE episode_id = ?').run(existing.id);
+      const ins = db.prepare(
+        'INSERT INTO episode_sources (episode_id, label, url, position) VALUES (?, ?, ?, ?)'
+      );
+      lignes.forEach((ligne, i) => {
+        try {
+          // Même extracteur que le lecteur principal : on ne conserve jamais le
+          // HTML collé, seulement l'adresse.
+          const { url } = extractEmbedUrl(ligne);
+          ins.run(existing.id, `Lecteur ${i + 2}`, url, i);
+        } catch (e) {
+          refuses.push({ ligne: i + 1, message: e.message });
+        }
+      });
+      db.exec('COMMIT');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      throw e;
+    }
+  }
+
   invalidateEmbedHosts();
   audit(req.user, 'edit_episode', `content#${existing.content_id}`,
     `S${parsed.episode.season}E${parsed.episode.number}`);
 
+  const sources = db
+    .prepare('SELECT id, label, url FROM episode_sources WHERE episode_id = ? ORDER BY position, id')
+    .all(existing.id);
+
   res.json({
     ok: true,
     notice: parsed.notice,
+    refuses,
+    sources,
     episode: db.prepare(`SELECT ${EPISODE_COLS} FROM episodes WHERE id = ?`).get(existing.id),
   });
 });

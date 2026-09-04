@@ -306,6 +306,43 @@ async function waitForServer(proc) {
       r = await admin('PUT', '/api/admin/episodes/' + epId, { title: 'Le vrai début' });
       check('modification d’un épisode', r.status === 200 && r.data.episode.title === 'Le vrai début');
 
+      // Plusieurs lecteurs par épisode : un hébergeur qui échoue sur un
+      // appareil doit pouvoir être doublé par un autre.
+      {
+        r = await admin('PUT', '/api/admin/episodes/' + epId, {
+          sources: 'https://lecteur2.example.com/a\n<iframe src="https://lecteur3.example.com/b"></iframe>',
+        });
+        check('lecteurs supplémentaires enregistrés', r.data.sources?.length === 2,
+          JSON.stringify(r.data.sources));
+        check('le code d’intégration est réduit à son adresse',
+          r.data.sources?.[1]?.url === 'https://lecteur3.example.com/b', r.data.sources?.[1]?.url);
+        check('les lecteurs sont numérotés à la suite du principal',
+          r.data.sources?.[0]?.label === 'Lecteur 2' && r.data.sources?.[1]?.label === 'Lecteur 3');
+
+        r = await alice('GET', '/api/content/' + serieId);
+        const ep = r.data.item.episodes.find((x) => x.id === epId);
+        check('un membre voit les lecteurs supplémentaires', ep?.sources?.length === 2);
+        check('chaque lecteur porte son type', ep?.sources?.every((s) => s.player === 'embed'));
+
+        // Les domaines supplémentaires doivent pouvoir être affichés en cadre.
+        const csp = (await fetch(BASE + '/')).headers.get('content-security-policy') || '';
+        check('les domaines des lecteurs supplémentaires passent la CSP',
+          csp.includes('lecteur2.example.com') && csp.includes('lecteur3.example.com'),
+          csp.slice(0, 160));
+
+        // Une ligne invalide est signalée sans empêcher les autres.
+        r = await admin('PUT', '/api/admin/episodes/' + epId, {
+          sources: 'javascript:alert(1)\nhttps://lecteur4.example.com/c',
+        });
+        check('ligne dangereuse refusée', r.data.refuses?.length === 1, JSON.stringify(r.data.refuses));
+        check('la ligne valide est conservée', r.data.sources?.length === 1);
+        check('la liste remplace l’ancienne au lieu de s’y ajouter',
+          r.data.sources?.[0]?.url === 'https://lecteur4.example.com/c');
+
+        r = await admin('PUT', '/api/admin/episodes/' + epId, { sources: '' });
+        check('liste vide efface les lecteurs supplémentaires', r.data.sources?.length === 0);
+      }
+
       check('suppression d’un épisode',
         (await admin('DELETE', '/api/admin/episodes/' + epId)).status === 200);
       check('il en reste deux',

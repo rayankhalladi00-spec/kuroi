@@ -12,6 +12,33 @@ const listFiles = db.prepare(
   "SELECT id, original_name, size FROM files WHERE content_id = ? AND kind = 'attachment' ORDER BY id"
 );
 
+// Moyenne et nombre de votants par episode d'une serie, en une requete plutot
+// qu'une par episode.
+const listNotes = db.prepare(
+  `SELECT e.id AS episode_id,
+          ROUND(AVG(r.score), 1) AS moyenne,
+          COUNT(r.score)         AS votants
+   FROM episodes e
+   LEFT JOIN episode_ratings r ON r.episode_id = e.id
+   WHERE e.content_id = ?
+   GROUP BY e.id`
+);
+
+const listMesNotes = db.prepare(
+  `SELECT r.episode_id, r.score
+   FROM episode_ratings r
+   JOIN episodes e ON e.id = r.episode_id
+   WHERE e.content_id = ? AND r.user_id = ?`
+);
+
+const listCommentCounts = db.prepare(
+  `SELECT c.episode_id, COUNT(*) AS n
+   FROM episode_comments c
+   JOIN episodes e ON e.id = c.episode_id
+   WHERE e.content_id = ?
+   GROUP BY c.episode_id`
+);
+
 const listSources = db.prepare(
   'SELECT id, label, url FROM episode_sources WHERE episode_id = ? ORDER BY position, id'
 );
@@ -25,7 +52,7 @@ const listEpisodes = db.prepare(
 // en <iframe>.
 const playerKind = (url) => (url ? (isDirectVideo(url) ? 'video' : 'embed') : null);
 
-function decorate(item, favIds, seen, withEpisodes = false) {
+function decorate(item, favIds, seen, withEpisodes = false, currentUserId = null) {
   item.files = listFiles.all(item.id);
   item.player = playerKind(item.video_url);
   item.favorite = favIds.has(item.id);
@@ -37,7 +64,13 @@ function decorate(item, favIds, seen, withEpisodes = false) {
     item.episodeCount = eps.length;
     item.seasonCount = new Set(eps.map((e) => e.season)).size;
     item.watchedCount = eps.filter((e) => seen.episodes.has(e.id)).length;
-    if (withEpisodes)
+    if (withEpisodes) {
+      const notes = new Map(listNotes.all(item.id).map((r) => [r.episode_id, r]));
+      const miennes = new Map(
+        listMesNotes.all(item.id, currentUserId).map((r) => [r.episode_id, r.score])
+      );
+      const commentaires = new Map(listCommentCounts.all(item.id).map((r) => [r.episode_id, r.n]));
+
       item.episodes = eps.map((e) => ({
         ...e,
         player: playerKind(e.video_url),
@@ -45,7 +78,12 @@ function decorate(item, favIds, seen, withEpisodes = false) {
         // Chaque source porte son propre type de lecteur : un épisode peut
         // mélanger un fichier vidéo et des lecteurs externes.
         sources: listSources.all(e.id).map((s) => ({ ...s, player: playerKind(s.url) })),
+        moyenne: notes.get(e.id)?.votants ? notes.get(e.id).moyenne : null,
+        votants: notes.get(e.id)?.votants ?? 0,
+        maNote: miennes.get(e.id) ?? null,
+        commentaires: commentaires.get(e.id) ?? 0,
       }));
+    }
   }
   return item;
 }
@@ -140,7 +178,7 @@ router.get('/:id', (req, res) => {
     .all(item.id, item.type, item.genre, item.genre)
     .map((r) => decorate(r, favIds, seen));
 
-  res.json({ item: decorate(item, favIds, seen, true), similar });
+  res.json({ item: decorate(item, favIds, seen, true, req.user.id), similar });
 });
 
 // Marque un titre ou un episode comme vu, ou l'oublie. Un simple bascule.

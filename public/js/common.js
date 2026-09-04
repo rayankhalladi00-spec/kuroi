@@ -128,6 +128,15 @@ function isDrive(url) {
   }
 }
 
+// L'etoile distingue les administrateurs. Le role est relu a chaque affichage
+// plutot que fige dans le message : promouvoir quelqu'un doit se voir partout,
+// y compris sur ce qu'il a ecrit avant.
+function nomAvecRole(nom, role) {
+  return role === 'admin'
+    ? `${esc(nom)} <span class="admin-star" title="Administrateur">★</span>`
+    : esc(nom);
+}
+
 /* -------------------------------- session ---------------------------------- */
 
 async function currentUser() {
@@ -186,7 +195,7 @@ function renderNav(user, active) {
             <div class="menu-head">
               ${avatarHtml(user, 'menu-avatar')}
               <div>
-                <b>${esc(user.username)}</b>
+                <b>${nomAvecRole(user.username, user.role)}</b>
                 <small>${esc(user.email)}</small>
               </div>
             </div>

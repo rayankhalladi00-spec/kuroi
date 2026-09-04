@@ -1395,3 +1395,107 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   font-size: 11px;
   font-weight: 700;
 }
+
+/* -------------------------- notes et commentaires -------------------------- */
+
+/* L'etoile des administrateurs, partout ou un pseudo s'affiche. */
+.admin-star {
+  color: var(--accent);
+  font-size: 0.85em;
+  vertical-align: 1px;
+}
+
+#episodeSocial {
+  display: grid;
+  gap: 18px;
+  margin: 22px 0 6px;
+}
+
+.note-bloc {
+  padding: 16px 18px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.note-tete {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.note-tete h3 { margin: 0; font-size: 15px; }
+.note-moyenne { font-size: 14px; font-variant-numeric: tabular-nums; }
+.note-moyenne b { color: var(--accent); font-size: 18px; }
+
+/* Dix boutons qui doivent tenir sur une ligne d'ecran de telephone :
+   ils se partagent la largeur au lieu d'avoir une taille fixe. */
+.note-echelle { display: flex; gap: 6px; }
+.note-echelle.occupe { opacity: 0.5; pointer-events: none; }
+
+.note-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 9px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease),
+              border-color var(--fast) var(--ease);
+}
+.note-btn:hover { border-color: var(--accent); color: var(--text); }
+.note-btn.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+#noteRetirer { margin-top: 10px; }
+
+.commentaires h3 { margin: 0 0 12px; font-size: 15px; }
+
+#comForm { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
+#comBody {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+#comBody:focus { outline: none; border-color: var(--accent); }
+
+.commentaire {
+  padding: 12px 14px;
+  margin-bottom: 9px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.commentaire-tete {
+  display: flex; align-items: center; gap: 9px;
+  margin-bottom: 5px; font-size: 13px;
+}
+.commentaire-tete time { color: var(--text-faint); }
+/* Le bouton de suppression se pousse a droite sans marge codee en dur. */
+.commentaire-tete .icon-btn { margin-left: auto; width: 28px; height: 28px; }
+.commentaire p { margin: 0; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Pastilles de la liste des episodes : moyenne et nombre d'avis. */
+.ep-note { flex: none; display: flex; gap: 8px; align-items: center; font-size: 12px; }
+.ep-score {
+  padding: 2px 7px; border-radius: 99px;
+  background: var(--accent-soft); color: var(--accent);
+  font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.ep-coms { display: inline-flex; align-items: center; gap: 3px; color: var(--text-faint); }
+.ep-coms svg { width: 13px; height: 13px; }
+
+@media (max-width: 520px) {
+  .note-echelle { flex-wrap: wrap; }
+  .note-btn { flex: 1 1 17%; }
+  #comForm { flex-direction: column; align-items: stretch; }
+}

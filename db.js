@@ -150,6 +150,31 @@ CREATE TABLE IF NOT EXISTS watched (
   watched_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now'))
 );
 
+-- Note d'un episode, de 1 a 10. Une seule par membre et par episode : noter
+-- de nouveau remplace la note precedente.
+CREATE TABLE IF NOT EXISTS episode_ratings (
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  episode_id INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+  score      INTEGER NOT NULL CHECK (score BETWEEN 1 AND 10),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, episode_id)
+);
+
+-- Commentaires d'un episode.
+--
+-- author fige le pseudo au moment du message : il survit a la suppression du
+-- compte, comme pour la boite a idees. user_id reste a cote pour retrouver le
+-- role courant — c'est lui qui decide de l'etoile des administrateurs, et une
+-- promotion doit se voir sur les anciens messages.
+CREATE TABLE IF NOT EXISTS episode_comments (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  episode_id INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+  user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  author     TEXT NOT NULL,
+  body       TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now'))
+);
+
 -- Favoris : « ma liste » de chaque membre.
 CREATE TABLE IF NOT EXISTS favorites (
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -174,6 +199,8 @@ CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_watched_unique
   ON watched(user_id, content_id, COALESCE(episode_id, 0));
 CREATE INDEX IF NOT EXISTS idx_sources_episode ON episode_sources(episode_id, position);
+CREATE INDEX IF NOT EXISTS idx_ratings_episode ON episode_ratings(episode_id);
+CREATE INDEX IF NOT EXISTS idx_comments_episode ON episode_comments(episode_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_watched_user ON watched(user_id, watched_at DESC);
 CREATE INDEX IF NOT EXISTS idx_watched_content ON watched(user_id, content_id);
 CREATE INDEX IF NOT EXISTS idx_content_type ON content(type);

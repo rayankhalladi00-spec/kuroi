@@ -37,7 +37,7 @@ function ideaRow(s) {
           <span class="badge ${st.cls}">${st.label}</span>
         </div>
         ${s.note ? `<div class="idea-note">${esc(s.note)}</div>` : ''}
-        <div class="idea-meta">${esc(TYPE_LABEL[s.type])} · proposé par ${esc(s.author)} le ${formatDate(s.created_at)}</div>
+        <div class="idea-meta">${esc(TYPE_LABEL[s.type])} · proposé par ${nomAvecRole(s.author, s.author_role)} le ${formatDate(s.created_at)}</div>
         ${s.admin_note ? `<div class="idea-admin-note"><b>Réponse :</b> ${esc(s.admin_note)}</div>` : ''}
       </div>
 

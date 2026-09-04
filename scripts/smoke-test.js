@@ -595,6 +595,98 @@ async function waitForServer(proc) {
       r = await alice('POST', `/api/content/${filmId}/watched`);
       check('film démarqué', r.data.watched === false);
 
+      // ------------------------- notes et commentaires -------------------------
+      {
+        const ep = eps[0];
+
+        r = await alice('PUT', `/api/episodes/${ep}/rating`, { score: 8 });
+        check('note enregistrée', r.status === 200 && r.data.maNote === 8 && r.data.votants === 1,
+          JSON.stringify(r.data));
+
+        // Renoter remplace : la cle primaire interdit d'empiler deux avis.
+        r = await alice('PUT', `/api/episodes/${ep}/rating`, { score: 6 });
+        check('renoter remplace au lieu d’ajouter',
+          r.data.maNote === 6 && r.data.votants === 1, JSON.stringify(r.data));
+
+        r = await admin('PUT', `/api/episodes/${ep}/rating`, { score: 9 });
+        check('moyenne calculée sur tous les votants',
+          r.data.votants === 2 && r.data.moyenne === 7.5, JSON.stringify(r.data));
+
+        for (const mauvaise of [0, 11, 5.5, 'huit', null]) {
+          check(`note ${JSON.stringify(mauvaise)} refusée`,
+            (await alice('PUT', `/api/episodes/${ep}/rating`, { score: mauvaise })).status === 400);
+        }
+        check('note sur un épisode inexistant refusée',
+          (await alice('PUT', '/api/episodes/999999/rating', { score: 5 })).status === 404);
+
+        // La fiche porte deja moyenne et note personnelle : la page n'a pas a
+        // lancer une requete par episode pour les afficher.
+        {
+          const fiche = (await alice('GET', '/api/content/' + serie)).data.item;
+          const vu = fiche.episodes.find((e) => e.id === ep);
+          check('la fiche donne la moyenne de l’épisode', vu.moyenne === 7.5 && vu.votants === 2,
+            String(vu.moyenne));
+          check('la fiche donne ma note à moi', vu.maNote === 6, String(vu.maNote));
+          // Chacun voit la sienne : la note d'Alice ne doit pas fuir chez l'admin.
+          const coteAdmin = (await admin('GET', '/api/content/' + serie)).data.item.episodes
+            .find((e) => e.id === ep);
+          check('chaque membre voit sa propre note', coteAdmin.maNote === 9, String(coteAdmin.maNote));
+          const autre = fiche.episodes.find((e) => e.id !== ep);
+          check('un épisode sans note n’affiche pas de moyenne',
+            autre.moyenne === null && autre.votants === 0 && autre.maNote === null);
+        }
+
+        r = await alice('DELETE', `/api/episodes/${ep}/rating`);
+        check('note retirée', r.status === 200 && r.data.maNote === null && r.data.votants === 1,
+          JSON.stringify(r.data));
+        check('retirer une note absente répond 404',
+          (await alice('DELETE', `/api/episodes/${ep}/rating`)).status === 404);
+
+        // Commentaires.
+        r = await alice('POST', `/api/episodes/${ep}/comments`, { body: '  Très bon début.  ' });
+        check('commentaire publié', r.status === 200 && r.data.comment.body === 'Très bon début.',
+          JSON.stringify(r.data));
+        const comAlice = r.data.comment.id;
+        check('commentaire vide refusé',
+          (await alice('POST', `/api/episodes/${ep}/comments`, { body: '   ' })).status === 400);
+        check('commentaire sur épisode inexistant refusé',
+          (await alice('POST', '/api/episodes/999999/comments', { body: 'ok' })).status === 404);
+
+        r = await admin('POST', `/api/episodes/${ep}/comments`, { body: 'Noté.' });
+        const comAdmin = r.data.comment.id;
+        check('l’étoile suit le rôle de l’auteur', r.data.comment.author_role === 'admin',
+          String(r.data.comment.author_role));
+
+        r = await alice('GET', `/api/episodes/${ep}/comments`);
+        check('les commentaires sont listés', r.data.comments.length === 2,
+          String(r.data.comments.length));
+        check('le plus récent en premier', r.data.comments[0].id === comAdmin);
+        check('un membre ordinaire n’a pas d’étoile',
+          r.data.comments.find((c) => c.id === comAlice).author_role === 'user');
+
+        check('la fiche compte les commentaires',
+          (await alice('GET', '/api/content/' + serie)).data.item.episodes
+            .find((e) => e.id === ep).commentaires === 2);
+
+        check('on ne supprime pas le commentaire d’un autre',
+          (await alice('DELETE', '/api/episodes/comments/' + comAdmin)).status === 403);
+        check('chacun supprime le sien',
+          (await alice('DELETE', '/api/episodes/comments/' + comAlice)).status === 200);
+        check('un administrateur supprime n’importe lequel',
+          (await admin('DELETE', '/api/episodes/comments/' + comAdmin)).status === 200);
+        check('commentaire déjà supprimé : 404',
+          (await admin('DELETE', '/api/episodes/comments/' + comAdmin)).status === 404);
+
+        check('notes et commentaires réservés aux membres connectés',
+          (await client()('GET', `/api/episodes/${ep}/comments`)).status === 401);
+
+        // Supprimer l'episode doit emporter notes et commentaires avec lui.
+        await alice('PUT', `/api/episodes/${eps[1]}/rating`, { score: 4 });
+        await alice('POST', `/api/episodes/${eps[1]}/comments`, { body: 'à effacer' });
+        await admin('DELETE', '/api/admin/episodes/' + eps[1]);
+        check('notes et commentaires disparaissent avec l’épisode',
+          (await alice('GET', `/api/episodes/${eps[1]}/comments`)).status === 404);
+      }
       await admin('DELETE', '/api/admin/content/' + serie);
     }
 

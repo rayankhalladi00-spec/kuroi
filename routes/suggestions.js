@@ -23,10 +23,12 @@ const STATUSES = ['nouveau', 'prevu', 'ajoute', 'refuse'];
 // une seule requête, pour éviter une requête par ligne affichée.
 const LIST_SQL = `
   SELECT s.*,
+         u.role AS author_role,
          (SELECT COUNT(*) FROM suggestion_votes v WHERE v.suggestion_id = s.id) AS votes,
          EXISTS(SELECT 1 FROM suggestion_votes v
                 WHERE v.suggestion_id = s.id AND v.user_id = @me)              AS voted
-  FROM suggestions s`;
+  FROM suggestions s
+  LEFT JOIN users u ON u.id = s.user_id`;
 
 router.get('/', (req, res) => {
   const rows = db

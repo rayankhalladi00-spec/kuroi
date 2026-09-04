@@ -12,6 +12,7 @@ const SEUIL_IFRAME_MS = 5 * 60 * 1000;
 // lecture : on marque à 90 %, comme le font les plateformes.
 const SEUIL_VIDEO = 0.9;
 
+let utilisateur = null; // membre connecte : decide qui peut effacer un commentaire
 let item = null;
 let similar = [];
 let current = null; // épisode en cours, null pour un film
@@ -249,7 +250,138 @@ function renderPlayer() {
   });
 
   renderEpNav();
+  renderSocial();
   startChrono();
+}
+
+/* -------------------------- note et commentaires --------------------------- */
+
+function noteHtml(cible) {
+  const boutons = Array.from({ length: 10 }, (_, i) => i + 1)
+    .map(
+      (n) =>
+        `<button class="note-btn ${cible.maNote === n ? 'on' : ''}" data-note="${n}"
+                 type="button" aria-pressed="${cible.maNote === n}"
+                 aria-label="Noter ${n} sur 10">${n}</button>`
+    )
+    .join('');
+
+  const moyenne = cible.votants
+    ? `<b>${cible.moyenne}</b>/10 <span class="hint">sur ${cible.votants} vote${cible.votants > 1 ? 's' : ''}</span>`
+    : '<span class="hint">Aucune note pour l’instant</span>';
+
+  return `<div class="note-bloc">
+    <div class="note-tete">
+      <h3>Ta note</h3>
+      <div class="note-moyenne">${moyenne}</div>
+    </div>
+    <div class="note-echelle" id="noteEchelle">${boutons}</div>
+    ${cible.maNote ? '<button class="btn btn-sm btn-ghost" id="noteRetirer" type="button">Retirer ma note</button>' : ''}
+  </div>`;
+}
+
+function commentaireHtml(c) {
+  const mien = c.user_id === utilisateur?.id;
+  const effacable = mien || utilisateur?.role === 'admin';
+  return `<article class="commentaire" data-com="${c.id}">
+    <div class="commentaire-tete">
+      <b>${nomAvecRole(c.author, c.author_role)}</b>
+      <time>${esc(quandCourt(c.created_at))}</time>
+      ${effacable ? `<button class="icon-btn" data-delcom="${c.id}" type="button"
+                             aria-label="Supprimer ce commentaire">${icon('trash')}</button>` : ''}
+    </div>
+    <p>${esc(c.body)}</p>
+  </article>`;
+}
+
+function quandCourt(s) {
+  if (!s) return '';
+  const d = new Date(String(s).replace(' ', 'T') + 'Z');
+  if (isNaN(d)) return s;
+  return d.toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+// Envoie ou retire la note, puis reflete la reponse du serveur : c'est lui qui
+// recalcule la moyenne, l'interface ne la devine pas.
+async function noter(cible, score) {
+  const echelle = document.getElementById('noteEchelle');
+  echelle?.classList.add('occupe');
+  try {
+    const r =
+      score === null
+        ? await api(`/api/episodes/${cible.id}/rating`, { method: 'DELETE' })
+        : await api(`/api/episodes/${cible.id}/rating`, { method: 'PUT', body: { score } });
+
+    cible.moyenne = r.moyenne;
+    cible.votants = r.votants;
+    cible.maNote = r.maNote;
+
+    // Seul le bloc de note est refait : reconstruire tout le conteneur
+    // effacerait un commentaire en cours de redaction.
+    const bloc = document.querySelector('#episodeSocial .note-bloc');
+    if (bloc) bloc.outerHTML = noteHtml(cible);
+    majNoteListe(cible);
+  } catch (err) {
+    echelle?.classList.remove('occupe');
+    alert(err.message || 'La note n’a pas pu être enregistrée.');
+  }
+}
+
+// La liste des episodes affiche aussi la moyenne : elle doit suivre.
+function majNoteListe(cible) {
+  const el = document.querySelector(`.ep[data-ep="${cible.id}"] .ep-note`);
+  if (el) el.innerHTML = badgeNote(cible);
+}
+
+function majCompteurCommentaires(cible, delta) {
+  cible.commentaires = Math.max(0, (cible.commentaires || 0) + delta);
+  const c = document.getElementById('comCount');
+  if (c) c.textContent = cible.commentaires || '';
+  majNoteListe(cible);
+}
+
+// Pastille compacte pour la liste des episodes : moyenne et nombre d'avis.
+function badgeNote(e) {
+  const bouts = [];
+  if (e.votants) bouts.push(`<span class="ep-score">★ ${e.moyenne}</span>`);
+  if (e.commentaires) bouts.push(`<span class="ep-coms">${icon('idea')} ${e.commentaires}</span>`);
+  return bouts.join('');
+}
+
+async function renderSocial() {
+  const box = document.getElementById('episodeSocial');
+  if (!box) return;
+
+  const cible = cibleCourante();
+  if (!cible || cible === item) {
+    // Notes et commentaires portent sur un episode : rien a montrer pour un
+    // film ou une serie sans episode selectionne.
+    box.innerHTML = '';
+    return;
+  }
+
+  box.innerHTML = `
+    ${noteHtml(cible)}
+    <div class="commentaires">
+      <h3>Commentaires <span class="row-count" id="comCount">${cible.commentaires || ''}</span></h3>
+      <form id="comForm">
+        <textarea id="comBody" rows="2" maxlength="1000"
+                  placeholder="Ton avis sur cet épisode…"></textarea>
+        <button class="btn btn-primary btn-sm" type="submit">Publier</button>
+      </form>
+      <div id="comList"><p class="hint">Chargement…</p></div>
+    </div>`;
+
+  try {
+    const { comments } = await api(`/api/episodes/${cible.id}/comments`);
+    document.getElementById('comList').innerHTML = comments.length
+      ? comments.map(commentaireHtml).join('')
+      : '<p class="hint">Personne n’a encore réagi.</p>';
+    document.getElementById('comCount').textContent = comments.length || '';
+  } catch {
+    document.getElementById('comList').innerHTML =
+      '<p class="hint">Les commentaires n’ont pas pu être chargés.</p>';
+  }
 }
 
 function seasons() {
@@ -320,6 +452,7 @@ function episodesHtml() {
                 <span class="ep-title">${esc(e.title || 'Épisode ' + e.number)}</span>
                 ${e.synopsis ? `<span class="ep-synopsis">${esc(e.synopsis)}</span>` : ''}
               </span>
+              <span class="ep-note">${badgeNote(e)}</span>
               <span class="ep-play">${icon(e.video_url ? 'play' : 'inbox')}</span>
             </button>
             <button class="ep-seen" data-seen="${e.id}" type="button"
@@ -498,6 +631,61 @@ function wirePage() {
     }
   });
 
+  const social = document.getElementById('episodeSocial');
+
+  social?.addEventListener('click', async (e) => {
+    const cible = cibleCourante();
+    if (!cible) return;
+
+    const note = e.target.closest('[data-note]');
+    if (note) return void noter(cible, Number(note.dataset.note));
+
+    if (e.target.closest('#noteRetirer')) return void noter(cible, null);
+
+    const del = e.target.closest('[data-delcom]');
+    if (del) {
+      del.disabled = true;
+      try {
+        await api(`/api/episodes/comments/${del.dataset.delcom}`, { method: 'DELETE' });
+        document.querySelector(`[data-com="${del.dataset.delcom}"]`)?.remove();
+        majCompteurCommentaires(cible, -1);
+      } catch (err) {
+        del.disabled = false;
+        alert(err.message || 'Suppression impossible.');
+      }
+    }
+  });
+
+  social?.addEventListener('submit', async (e) => {
+    if (e.target.id !== 'comForm') return;
+    e.preventDefault();
+
+    const cible = cibleCourante();
+    const champ = document.getElementById('comBody');
+    const texte = champ.value.trim();
+    if (!cible || !texte) return;
+
+    champ.disabled = true;
+    try {
+      const { comment } = await api(`/api/episodes/${cible.id}/comments`, {
+        method: 'POST',
+        body: { body: texte },
+      });
+      champ.value = '';
+      const liste = document.getElementById('comList');
+      // Le premier commentaire remplace le texte d'attente ; les suivants
+      // s'ajoutent en tete, comme les renvoie le serveur.
+      if (!liste.querySelector('.commentaire')) liste.innerHTML = '';
+      liste.insertAdjacentHTML('afterbegin', commentaireHtml(comment));
+      majCompteurCommentaires(cible, +1);
+    } catch (err) {
+      alert(err.message || 'Publication impossible.');
+    } finally {
+      champ.disabled = false;
+      champ.focus();
+    }
+  });
+
   const fav = document.getElementById('favBtn');
   fav?.addEventListener('click', async () => {
     fav.disabled = true;
@@ -519,6 +707,7 @@ function wirePage() {
 (async function init() {
   const user = await currentUser();
   if (!requireLogin(user)) return;
+  utilisateur = user;
 
   const id = new URLSearchParams(location.search).get('id');
   try {
@@ -578,6 +767,7 @@ function wirePage() {
        <div id="playerBox"></div>
        <div class="ep-nav" id="epNav"></div>
        <p class="hint" id="seenHint"></p>
+       <section id="episodeSocial"></section>
 
        ${episodesHtml()}
        ${item.files.length ? `<section class="section"><h2>Téléchargements</h2>${item.files.map(fileRow).join('')}</section>` : ''}

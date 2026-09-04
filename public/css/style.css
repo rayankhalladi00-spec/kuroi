@@ -1298,3 +1298,14 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   background: var(--bg-hover);
 }
 .cell-poster.placeholder { background: var(--bg-hover); }
+
+/* Barre d'action au sommet d'une saison. */
+.season-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.season-bar .hint { margin: 0; }

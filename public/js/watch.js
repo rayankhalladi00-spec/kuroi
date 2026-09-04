@@ -212,6 +212,25 @@ function seasons() {
   return [...map.entries()].sort((a, b) => a[0] - b[0]);
 }
 
+// Le bouton bascule : il propose de retirer la saison une fois qu'elle est
+// entièrement vue, plutôt que de rester sur « marquer » sans effet visible.
+function boutonSaison(saison, eps) {
+  const toutVu = eps.every((e) => e.watched);
+  return `<button class="btn btn-sm ${toutVu ? '' : 'btn-primary'}" data-season-mark="${saison}"
+                  data-watched="${toutVu ? 'true' : 'false'}" type="button">
+            ${icon('check')} ${toutVu ? 'Retirer la saison' : 'Marquer la saison comme vue'}
+          </button>`;
+}
+
+function majBoutonSaison(saison) {
+  const eps = seasons().find(([s]) => s === saison)?.[1] || [];
+  const barre = document.querySelector(`.season[data-season="${saison}"] .season-bar`);
+  if (!barre) return;
+  barre.innerHTML =
+    `<span class="hint">${eps.filter((e) => e.watched).length} épisode(s) vu(s) sur ${eps.length}</span>` +
+    boutonSaison(saison, eps);
+}
+
 function episodesHtml() {
   if (item.type !== 'serie') return '';
   const list = seasons();
@@ -238,6 +257,10 @@ function episodesHtml() {
     .map(
       ([s, eps], i) => `
       <div class="season" data-season="${s}" ${i === 0 ? '' : 'hidden'}>
+        <div class="season-bar">
+          <span class="hint">${eps.filter((e) => e.watched).length} épisode(s) vu(s) sur ${eps.length}</span>
+          ${boutonSaison(s, eps)}
+        </div>
         ${eps
           .map(
             (e) => `
@@ -308,7 +331,9 @@ function similarHtml() {
 
 /* ------------------------------- interactions ------------------------------ */
 
-function markSeen(episodeId, seen) {
+// majBarre est mis à faux par le marquage d'une saison entière, qui reconstruit
+// la barre une seule fois à la fin plutôt qu'à chaque épisode.
+function markSeen(episodeId, seen, majBarre = true) {
   const row = document.querySelector(`.ep[data-ep="${episodeId}"]`);
   if (row) {
     row.classList.toggle('seen', seen);
@@ -325,6 +350,11 @@ function markSeen(episodeId, seen) {
     if (chip) chip.textContent = `${eps.filter((e) => e.watched).length}/${eps.length}`;
   }
   if (current && current.id === episodeId) majBouton(current);
+
+  if (majBarre) {
+    const ep = (item.episodes || []).find((x) => x.id === episodeId);
+    if (ep) majBoutonSaison(ep.season);
+  }
 }
 
 function play(ep) {
@@ -361,6 +391,33 @@ function wirePage() {
       await marquer(ep, !ep.watched);
       el.disabled = false;
     });
+  });
+
+  // Délégation : la barre de saison est reconstruite à chaque changement, un
+  // écouteur posé sur le bouton lui-même disparaîtrait avec lui.
+  app.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-season-mark]');
+    if (!b) return;
+
+    const saison = Number(b.dataset.seasonMark);
+    const versVu = b.dataset.watched !== 'true';
+    b.disabled = true;
+    try {
+      const r = await api(`/api/content/${item.id}/watched-season`, {
+        method: 'POST',
+        body: { season: saison, watched: versVu },
+      });
+      const touches = new Set(r.episodes);
+      for (const ep of item.episodes || []) {
+        if (touches.has(ep.id)) {
+          ep.watched = r.watched;
+          markSeen(ep.id, r.watched, false); // la barre est refaite une fois, après
+        }
+      }
+      majBoutonSaison(saison);
+    } catch (err) {
+      b.disabled = false;
+    }
   });
 
   document.getElementById('epNav')?.addEventListener('click', async (e) => {

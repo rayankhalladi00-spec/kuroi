@@ -170,6 +170,50 @@ router.post('/:id/watched', (req, res) => {
   res.json({ ok: true, watched: true });
 });
 
+// Marque ou démarque une saison entière d'un coup.
+//
+// Une seule transaction : sur une saison de vingt-cinq épisodes, vingt-cinq
+// requêtes séparées laisseraient l'interface à moitié à jour si le réseau
+// lâchait en cours de route.
+router.post('/:id/watched-season', (req, res) => {
+  const item = db.prepare('SELECT id, type FROM content WHERE id = ?').get(req.params.id);
+  if (!item) return res.status(404).json({ error: 'Introuvable' });
+  if (item.type !== 'serie')
+    return res.status(400).json({ error: 'Seules les séries ont des saisons.' });
+
+  const season = Number(req.body.season);
+  if (!Number.isInteger(season)) return res.status(400).json({ error: 'Saison invalide.' });
+
+  const episodes = db
+    .prepare('SELECT id FROM episodes WHERE content_id = ? AND season = ?')
+    .all(item.id, season);
+  if (!episodes.length) return res.status(404).json({ error: 'Cette saison n’a aucun épisode.' });
+
+  const watched = req.body.watched !== false;
+
+  const marquer = db.prepare(
+    `INSERT INTO watched (user_id, content_id, episode_id) VALUES (?, ?, ?)
+     ON CONFLICT DO UPDATE SET watched_at = strftime('%Y-%m-%d %H:%M:%f', 'now')`
+  );
+  const oublier = db.prepare(
+    'DELETE FROM watched WHERE user_id = ? AND content_id = ? AND episode_id = ?'
+  );
+
+  db.exec('BEGIN');
+  try {
+    for (const e of episodes) {
+      if (watched) marquer.run(req.user.id, item.id, e.id);
+      else oublier.run(req.user.id, item.id, e.id);
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+
+  res.json({ ok: true, watched, season, episodes: episodes.map((e) => e.id) });
+});
+
 // Ajout/retrait de « ma liste ».
 router.post('/:id/favorite', (req, res) => {
   const item = db.prepare('SELECT id FROM content WHERE id = ?').get(req.params.id);

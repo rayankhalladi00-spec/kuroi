@@ -474,6 +474,45 @@ async function waitForServer(proc) {
       r = await alice('POST', `/api/content/${serie}/watched`, { episodeId: eps[2] });
       check('second clic retire le vu', r.data.watched === false);
 
+      // Marquage d'une saison entière.
+      {
+        const s2 = (await admin('POST', `/api/admin/content/${serie}/episodes`,
+          { season: 2, number: 2, title: 'S2E2', video_url: 'https://lecteur.example.com/2-2' })).data.episode.id;
+
+        r = await alice('POST', `/api/content/${serie}/watched-season`, { season: 1 });
+        check('saison entière marquée', r.status === 200 && r.data.episodes.length === 2,
+          JSON.stringify(r.data));
+
+        let fiche = (await alice('GET', '/api/content/' + serie)).data.item;
+        check('les deux épisodes de la saison 1 sont vus',
+          fiche.episodes.filter((e) => e.season === 1).every((e) => e.watched));
+        check('la saison 2 n’est pas touchée',
+          fiche.episodes.filter((e) => e.season === 2).every((e) => !e.watched));
+
+        r = await alice('POST', `/api/content/${serie}/watched-season`, { season: 1, watched: false });
+        check('saison entière démarquée', r.data.watched === false);
+        fiche = (await alice('GET', '/api/content/' + serie)).data.item;
+        check('plus aucun épisode vu en saison 1',
+          fiche.episodes.filter((e) => e.season === 1).every((e) => !e.watched));
+        check('compteur global remis à zéro', fiche.watchedCount === 0, String(fiche.watchedCount));
+
+        // Marquer deux fois ne doit pas empiler de lignes.
+        await alice('POST', `/api/content/${serie}/watched-season`, { season: 1 });
+        await alice('POST', `/api/content/${serie}/watched-season`, { season: 1 });
+        check('marquer deux fois ne duplique rien',
+          (await alice('GET', '/api/content/' + serie)).data.item.watchedCount === 2);
+
+        check('saison inexistante refusée',
+          (await alice('POST', `/api/content/${serie}/watched-season`, { season: 99 })).status === 404);
+        check('saison non numérique refusée',
+          (await alice('POST', `/api/content/${serie}/watched-season`, { season: 'abc' })).status === 400);
+        check('saison refusée sur un film',
+          (await alice('POST', `/api/content/${filmId}/watched-season`, { season: 1 })).status === 400);
+
+        await alice('POST', `/api/content/${serie}/watched-season`, { season: 1, watched: false });
+        await admin('DELETE', '/api/admin/episodes/' + s2);
+      }
+
       check('épisode d’une autre série refusé',
         (await alice('POST', `/api/content/${filmId}/watched`, { episodeId: eps[0] })).status === 400);
 

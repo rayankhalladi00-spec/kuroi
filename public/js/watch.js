@@ -145,7 +145,7 @@ function majBouton(cible) {
   b.innerHTML = `${icon('check')} ${cible.watched ? 'Vu — retirer' : 'Marquer comme vu'}`;
 }
 
-function renderNav() {
+function renderEpNav() {
   const nav = document.getElementById('epNav');
   if (!nav) return;
   const cible = cibleCourante();
@@ -180,7 +180,7 @@ function renderPlayer() {
     el.classList.toggle('on', current && Number(el.dataset.ep) === current.id);
   });
 
-  renderNav();
+  renderEpNav();
   startChrono();
 }
 

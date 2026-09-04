@@ -702,6 +702,27 @@ async function waitForServer(proc) {
       );
     }
 
+    console.log('\n— Scripts du navigateur');
+    {
+      // Les scripts de page partagent l'espace global avec common.js. Une
+      // fonction homonyme y ecrase silencieusement celle de common.js : c'est
+      // ainsi qu'un renderNav local a fait disparaitre la barre de navigation
+      // de toutes les fiches, sans la moindre erreur en console.
+      const jsDir = path.join(__dirname, '..', 'public', 'js');
+      const noms = (f) =>
+        [...fs.readFileSync(path.join(jsDir, f), 'utf8')
+          .matchAll(/^(?:function|const|let|var)\s+([A-Za-z_$][\w$]*)/gm)].map((m) => m[1]);
+
+      const communs = new Set(noms('common.js'));
+      const collisions = [];
+      for (const f of fs.readdirSync(jsDir)) {
+        if (f === 'common.js' || f === 'theme.js' || !f.endsWith('.js')) continue;
+        for (const n of noms(f)) if (communs.has(n)) collisions.push(`${f}:${n}`);
+      }
+      check('aucun script de page n’écrase une fonction de common.js',
+        collisions.length === 0, collisions.join(', '));
+    }
+
     console.log('\n— Pages statiques');
     check('page de connexion servie', (await fetch(BASE + '/login.html')).status === 200);
 

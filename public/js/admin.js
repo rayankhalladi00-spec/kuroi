@@ -270,6 +270,9 @@ async function loadContent() {
         <td>${c.featured ? '★' : ''}</td>
         <td><div class="actions">
           <button class="btn btn-sm" data-cact="edit" data-id="${c.id}">Modifier</button>
+          ${c.type === 'serie'
+            ? `<button class="btn btn-sm" data-cact="eps" data-id="${c.id}">Épisodes</button>`
+            : ''}
           <button class="btn btn-sm btn-danger" data-cact="del" data-id="${c.id}">Supprimer</button>
         </div></td>
       </tr>`
@@ -419,9 +422,127 @@ function newContent() {
   ]);
 }
 
+/* --------------------------- épisodes d'une série -------------------------- */
+
+// La modale reste ouverte pendant qu'on enchaîne les ajouts : saisir vingt
+// épisodes en rouvrant une fenêtre à chaque fois serait pénible.
+async function manageEpisodes(contentId) {
+  const c = window.__content[contentId];
+  const { episodes } = await api(`/api/admin/content/${contentId}/episodes`);
+
+  const nextNumber = (list) => {
+    const s = Number(document.getElementById('epSeason')?.value || 1);
+    const inSeason = list.filter((e) => e.season === s);
+    return inSeason.length ? Math.max(...inSeason.map((e) => e.number)) + 1 : 1;
+  };
+
+  const rowHtml = (e) => `
+    <div class="ep-admin" data-epid="${e.id}">
+      <span class="badge">S${e.season}E${e.number}</span>
+      <span class="grow">
+        ${esc(e.title || 'Épisode ' + e.number)}
+        ${e.video_url ? '' : '<span class="missing"> · sans lecteur</span>'}
+      </span>
+      <button class="icon-btn" data-delep="${e.id}" type="button"
+              aria-label="Supprimer l’épisode S${e.season}E${e.number}">${icon('trash')}</button>
+    </div>`;
+
+  const listHtml = (list) =>
+    list.length ? list.map(rowHtml).join('') : '<p class="hint">Aucun épisode pour le moment.</p>';
+
+  openModal(
+    `Épisodes — ${c.title}`,
+    `<div class="msg" id="epMsg"></div>
+     <div id="epList">${listHtml(episodes)}</div>
+     <div class="row-inline" style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+       <div class="field" style="flex:0 0 74px;margin:0">
+         <label for="epSeason">Saison</label>
+         <input id="epSeason" type="number" min="1" max="99" value="1">
+       </div>
+       <div class="field" style="flex:0 0 74px;margin:0">
+         <label for="epNumber">N°</label>
+         <input id="epNumber" type="number" min="1" max="999" value="${nextNumber(episodes)}">
+       </div>
+       <div class="field" style="flex:1;min-width:150px;margin:0">
+         <label for="epTitle">Titre (facultatif)</label>
+         <input id="epTitle" maxlength="150">
+       </div>
+     </div>
+     <div class="field" style="margin-top:12px">
+       <label for="epVideo">Lecteur — lien ou code d’intégration</label>
+       <textarea id="epVideo" rows="2" placeholder="https://… ou &lt;iframe src=&quot;…&quot;&gt;"></textarea>
+     </div>
+     <div class="field">
+       <label for="epSynopsis">Résumé (facultatif)</label>
+       <textarea id="epSynopsis" rows="2" maxlength="800"></textarea>
+     </div>
+     <button class="btn btn-primary btn-block" id="epAdd" type="button">${icon('plus')} Ajouter l’épisode</button>`,
+    [{ label: 'Fermer', onClick: () => { closeModal(); loadContent(); } }]
+  );
+
+  const msg = document.getElementById('epMsg');
+  const show = (text, kind) => {
+    msg.textContent = text;
+    msg.className = `msg show ${kind}`;
+  };
+
+  document.getElementById('epAdd').addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget;
+    btn.disabled = true;
+    try {
+      const r = await api(`/api/admin/content/${contentId}/episodes`, {
+        method: 'POST',
+        body: {
+          season: document.getElementById('epSeason').value,
+          number: document.getElementById('epNumber').value,
+          title: document.getElementById('epTitle').value,
+          video_url: document.getElementById('epVideo').value,
+          synopsis: document.getElementById('epSynopsis').value,
+        },
+      });
+      episodes.push(r.episode);
+      episodes.sort((a, b) => a.season - b.season || a.number - b.number);
+      document.getElementById('epList').innerHTML = listHtml(episodes);
+
+      // On prépare la saisie suivante plutôt que de tout vider.
+      document.getElementById('epTitle').value = '';
+      document.getElementById('epVideo').value = '';
+      document.getElementById('epSynopsis').value = '';
+      document.getElementById('epNumber').value = nextNumber(episodes);
+      show(r.notice || `S${r.episode.season}E${r.episode.number} ajouté.`, r.notice ? 'warn' : 'success');
+    } catch (e) {
+      show(e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('epList').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-delep]');
+    if (!b) return;
+    b.disabled = true;
+    try {
+      await api('/api/admin/episodes/' + b.dataset.delep, { method: 'DELETE' });
+      const i = episodes.findIndex((e) => e.id === Number(b.dataset.delep));
+      if (i >= 0) episodes.splice(i, 1);
+      document.getElementById('epList').innerHTML = listHtml(episodes);
+      document.getElementById('epNumber').value = nextNumber(episodes);
+    } catch (e) {
+      b.disabled = false;
+      show(e.message, 'error');
+    }
+  });
+
+  document.getElementById('epSeason').addEventListener('change', () => {
+    document.getElementById('epNumber').value = nextNumber(episodes);
+  });
+}
+
 function contentAction(act, id) {
   const c = window.__content[id];
   if (!c) return;
+
+  if (act === 'eps') manageEpisodes(id).catch(fail);
 
   if (act === 'edit') {
     openModal('Modifier « ' + c.title + ' »', contentForm(c), [

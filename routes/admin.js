@@ -273,6 +273,123 @@ router.delete('/content/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+/* --------------------------------- épisodes -------------------------------- */
+
+const EPISODE_COLS = 'id, content_id, season, number, title, synopsis, video_url';
+
+function readEpisode(body, existing = {}) {
+  const season = Number(body.season ?? existing.season ?? 1);
+  const number = Number(body.number ?? existing.number);
+  const title = (body.title ?? existing.title ?? '').toString().trim() || null;
+  const synopsis = (body.synopsis ?? existing.synopsis ?? '').toString().trim().slice(0, 800) || null;
+  let video = (body.video_url ?? existing.video_url ?? '').toString().trim() || null;
+
+  if (!Number.isInteger(season) || season < 1 || season > 99)
+    throw new Error('Saison invalide (1 à 99).');
+  if (!Number.isInteger(number) || number < 1 || number > 999)
+    throw new Error('Numéro d’épisode invalide (1 à 999).');
+
+  let notice = null;
+  if (video) {
+    const r = extractEmbedUrl(video);
+    video = r.url;
+    if (r.upgraded) notice = 'Le lecteur était en http : passé en https.';
+  }
+  return { episode: { season, number, title, synopsis, video_url: video }, notice };
+}
+
+router.get('/content/:id/episodes', (req, res) => {
+  res.json({
+    episodes: db
+      .prepare(`SELECT ${EPISODE_COLS} FROM episodes WHERE content_id = ? ORDER BY season, number`)
+      .all(req.params.id),
+  });
+});
+
+router.post('/content/:id/episodes', (req, res) => {
+  const content = db.prepare('SELECT id, type, title FROM content WHERE id = ?').get(req.params.id);
+  if (!content) return res.status(404).json({ error: 'Contenu introuvable' });
+  if (content.type !== 'serie')
+    return res.status(400).json({ error: 'Seules les séries peuvent avoir des épisodes.' });
+
+  let parsed;
+  try {
+    parsed = readEpisode(req.body);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
+  const dup = db
+    .prepare('SELECT id FROM episodes WHERE content_id = ? AND season = ? AND number = ?')
+    .get(content.id, parsed.episode.season, parsed.episode.number);
+  if (dup)
+    return res.status(409).json({
+      error: `L’épisode S${parsed.episode.season}E${parsed.episode.number} existe déjà.`,
+    });
+
+  const info = db
+    .prepare(
+      `INSERT INTO episodes (content_id, season, number, title, synopsis, video_url)
+       VALUES (@content_id, @season, @number, @title, @synopsis, @video_url)`
+    )
+    .run({ ...parsed.episode, content_id: content.id });
+
+  invalidateEmbedHosts();
+  audit(req.user, 'add_episode', `content#${content.id}`,
+    `${content.title} S${parsed.episode.season}E${parsed.episode.number}`);
+
+  res.json({
+    ok: true,
+    notice: parsed.notice,
+    episode: db.prepare(`SELECT ${EPISODE_COLS} FROM episodes WHERE id = ?`).get(Number(info.lastInsertRowid)),
+  });
+});
+
+router.put('/episodes/:id', (req, res) => {
+  const existing = db.prepare('SELECT * FROM episodes WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Épisode introuvable' });
+
+  let parsed;
+  try {
+    parsed = readEpisode(req.body, existing);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
+  const dup = db
+    .prepare('SELECT id FROM episodes WHERE content_id = ? AND season = ? AND number = ? AND id <> ?')
+    .get(existing.content_id, parsed.episode.season, parsed.episode.number, existing.id);
+  if (dup)
+    return res.status(409).json({
+      error: `L’épisode S${parsed.episode.season}E${parsed.episode.number} existe déjà.`,
+    });
+
+  db.prepare(
+    `UPDATE episodes SET season = @season, number = @number, title = @title,
+            synopsis = @synopsis, video_url = @video_url WHERE id = @id`
+  ).run({ ...parsed.episode, id: existing.id });
+
+  invalidateEmbedHosts();
+  audit(req.user, 'edit_episode', `content#${existing.content_id}`,
+    `S${parsed.episode.season}E${parsed.episode.number}`);
+
+  res.json({
+    ok: true,
+    notice: parsed.notice,
+    episode: db.prepare(`SELECT ${EPISODE_COLS} FROM episodes WHERE id = ?`).get(existing.id),
+  });
+});
+
+router.delete('/episodes/:id', (req, res) => {
+  const ep = db.prepare('SELECT * FROM episodes WHERE id = ?').get(req.params.id);
+  if (!ep) return res.status(404).json({ error: 'Épisode introuvable' });
+
+  db.prepare('DELETE FROM episodes WHERE id = ?').run(ep.id);
+  invalidateEmbedHosts();
+  audit(req.user, 'delete_episode', `content#${ep.content_id}`, `S${ep.season}E${ep.number}`);
+  res.json({ ok: true });
+});
+
 /* ------------------------------ pièces jointes ----------------------------- */
 
 router.get('/upload-limits', (req, res) =>

@@ -83,6 +83,20 @@ CREATE TABLE IF NOT EXISTS files (
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Episodes d'une serie. Un film n'en a aucun et garde son video_url ;
+-- une serie peut n'en avoir aucun au depart, puis en recevoir autant qu'il faut.
+CREATE TABLE IF NOT EXISTS episodes (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  content_id INTEGER NOT NULL REFERENCES content(id) ON DELETE CASCADE,
+  season     INTEGER NOT NULL DEFAULT 1,
+  number     INTEGER NOT NULL,
+  title      TEXT,
+  synopsis   TEXT,
+  video_url  TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (content_id, season, number)
+);
+
 -- Boite a idees : les membres proposent des titres, tout le monde vote.
 CREATE TABLE IF NOT EXISTS suggestions (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -119,6 +133,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_files_content ON files(content_id);
+CREATE INDEX IF NOT EXISTS idx_episodes_content ON episodes(content_id, season, number);
 CREATE INDEX IF NOT EXISTS idx_suggestions_status ON suggestions(status, id DESC);
 CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_content_type ON content(type);

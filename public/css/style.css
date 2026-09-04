@@ -80,6 +80,11 @@
 
 * { box-sizing: border-box; }
 
+/* Une regle d'auteur comme « .season { display: grid } » bat le
+   « [hidden] { display: none } » du navigateur : l'element reste visible malgre
+   l'attribut. On impose donc le masquage une fois pour toutes. */
+[hidden] { display: none !important; }
+
 html { color-scheme: dark; }
 :root[data-theme='light'] { color-scheme: light; }
 
@@ -864,4 +869,135 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .page-head h1, .admin-wrap > h1 { font-size: 25px; }
   /* Le survol n'existe pas au doigt : les commandes restent visibles. */
   .card-fav { opacity: 1; }
+}
+
+/* ------------------------------ fiche de lecture --------------------------- */
+
+.watch-wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 4vw 80px;
+  animation: fade-up var(--normal) var(--ease) both;
+}
+
+.player-empty {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  text-align: center;
+}
+.player-empty p { margin: 0; }
+
+.watch-head {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 30px;
+  margin: 30px 0 8px;
+  align-items: start;
+}
+.watch-poster {
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-lg);
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.watch-poster.placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--bg-hover);
+  color: var(--text-faint);
+}
+.watch-meta h1 { margin: 6px 0 10px; font-size: clamp(26px, 3.4vw, 36px); font-weight: 800; }
+
+.now-playing {
+  display: flex; align-items: center; gap: 9px;
+  color: var(--text-muted); font-size: 14px; font-weight: 500;
+  margin-bottom: 12px; min-height: 0;
+}
+.now-playing:empty { display: none; }
+
+/* Fiche technique : deux colonnes qui se replient sur mobile. */
+.info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px 24px;
+  margin: 26px 0 0;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.info div { min-width: 0; }
+.info dt {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-faint); font-weight: 700; margin-bottom: 3px;
+}
+.info dd { margin: 0; font-size: 15px; font-weight: 500; }
+
+.section { margin-top: 44px; }
+.section > h2 {
+  font-size: 20px; margin: 0 0 16px; font-weight: 700;
+  display: flex; align-items: center; gap: 10px;
+}
+
+/* --------------------------------- épisodes -------------------------------- */
+
+.season { display: grid; gap: 9px; }
+
+.ep {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  padding: 13px 15px;
+  text-align: left;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease),
+              transform var(--fast) var(--ease);
+}
+.ep:hover { background: var(--bg-hover); border-color: var(--line-strong); transform: translateX(3px); }
+.ep.on { border-color: var(--accent); background: var(--accent-soft); }
+
+.ep-num {
+  flex: none;
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-weight: 700; font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.ep.on .ep-num { background: var(--accent); color: var(--on-accent); }
+
+.ep-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ep-title { font-weight: 600; font-size: 15px; }
+.ep-synopsis {
+  color: var(--text-muted); font-size: 13px; line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ep-play { flex: none; color: var(--text-faint); }
+.ep:hover .ep-play, .ep.on .ep-play { color: var(--accent); }
+
+/* Ligne d'épisode dans le panneau d'administration. */
+.ep-admin {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 13px; margin-bottom: 8px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 9px;
+  font-size: 14px;
+}
+.ep-admin .badge { font-variant-numeric: tabular-nums; }
+.ep-admin .grow { flex: 1; min-width: 0; }
+.ep-admin .missing { color: var(--warn); font-size: 12px; }
+
+@media (max-width: 760px) {
+  .watch-head { grid-template-columns: 1fr; gap: 20px; }
+  .watch-poster { max-width: 160px; }
 }

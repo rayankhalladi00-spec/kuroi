@@ -12,12 +12,27 @@ const listFiles = db.prepare(
   "SELECT id, original_name, size FROM files WHERE content_id = ? AND kind = 'attachment' ORDER BY id"
 );
 
-function decorate(item, favIds) {
+const listEpisodes = db.prepare(
+  `SELECT id, season, number, title, synopsis, video_url
+   FROM episodes WHERE content_id = ? ORDER BY season, number`
+);
+
+// Indique au client s'il doit poser une balise <video> ou un lecteur externe
+// en <iframe>.
+const playerKind = (url) => (url ? (isDirectVideo(url) ? 'video' : 'embed') : null);
+
+function decorate(item, favIds, withEpisodes = false) {
   item.files = listFiles.all(item.id);
-  // Le client a besoin de savoir s'il doit poser une balise <video> ou un
-  // lecteur externe en <iframe>.
-  item.player = item.video_url ? (isDirectVideo(item.video_url) ? 'video' : 'embed') : null;
+  item.player = playerKind(item.video_url);
   item.favorite = favIds.has(item.id);
+
+  if (item.type === 'serie') {
+    // Le catalogue n'a besoin que du décompte ; la fiche, de la liste complète.
+    const eps = listEpisodes.all(item.id);
+    item.episodeCount = eps.length;
+    item.seasonCount = new Set(eps.map((e) => e.season)).size;
+    if (withEpisodes) item.episodes = eps.map((e) => ({ ...e, player: playerKind(e.video_url) }));
+  }
   return item;
 }
 
@@ -46,7 +61,19 @@ router.get('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const item = db.prepare('SELECT * FROM content WHERE id = ?').get(req.params.id);
   if (!item) return res.status(404).json({ error: 'Introuvable' });
-  res.json({ item: decorate(item, favoriteIds(req.user.id)) });
+
+  const favIds = favoriteIds(req.user.id);
+  // Quelques titres proches, pour ne pas laisser la fiche se terminer sur rien.
+  const similar = db
+    .prepare(
+      `SELECT * FROM content
+       WHERE id <> ? AND (type = ? OR (genre IS NOT NULL AND genre = ?))
+       ORDER BY (genre IS NOT NULL AND genre = ?) DESC, id DESC LIMIT 8`
+    )
+    .all(item.id, item.type, item.genre, item.genre)
+    .map((r) => decorate(r, favIds));
+
+  res.json({ item: decorate(item, favIds, true), similar });
 });
 
 // Ajout/retrait de « ma liste ».

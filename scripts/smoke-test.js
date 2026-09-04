@@ -261,6 +261,66 @@ async function waitForServer(proc) {
       await admin('DELETE', '/api/admin/content/' + embedded);
     }
 
+    console.log('\n— Épisodes de série');
+    {
+      const serieId = (await admin('POST', '/api/admin/content', {
+        type: 'serie', title: 'Ma Série', year: 2025, genre: 'Aventure',
+      })).data.id;
+
+      r = await admin('POST', `/api/admin/content/${serieId}/episodes`, {
+        season: 1, number: 1, title: 'Le début',
+        video_url: '<iframe src="https://lecteur.example.com/e/s1e1"></iframe>',
+        synopsis: 'Tout commence ici.',
+      });
+      check('ajout d’un épisode', r.status === 200 && r.data.episode.id > 0, JSON.stringify(r.data));
+      check('lecteur de l’épisode extrait du code',
+        r.data.episode.video_url === 'https://lecteur.example.com/e/s1e1', r.data.episode.video_url);
+      const epId = r.data.episode.id;
+
+      await admin('POST', `/api/admin/content/${serieId}/episodes`, { season: 1, number: 2, title: 'La suite' });
+      await admin('POST', `/api/admin/content/${serieId}/episodes`, { season: 2, number: 1, title: 'Nouvelle saison' });
+
+      check('doublon saison/numéro refusé',
+        (await admin('POST', `/api/admin/content/${serieId}/episodes`, { season: 1, number: 1 })).status === 409);
+      check('numéro invalide refusé',
+        (await admin('POST', `/api/admin/content/${serieId}/episodes`, { season: 1, number: 0 })).status === 400);
+      check('épisode refusé sur un film',
+        (await admin('POST', `/api/admin/content/${filmId}/episodes`, { season: 1, number: 1 })).status === 400);
+      check('un membre ne peut pas ajouter d’épisode',
+        (await alice('POST', `/api/admin/content/${serieId}/episodes`, { season: 3, number: 1 })).status === 403);
+
+      r = await alice('GET', '/api/content/' + serieId);
+      check('les épisodes sont visibles par un membre', r.data.item.episodes?.length === 3,
+        JSON.stringify(r.data.item.episodes?.length));
+      check('épisodes triés par saison puis numéro',
+        r.data.item.episodes.map((e) => `${e.season}-${e.number}`).join(',') === '1-1,1-2,2-1');
+      check('décompte des saisons', r.data.item.seasonCount === 2 && r.data.item.episodeCount === 3);
+      check('type de lecteur fourni par épisode', r.data.item.episodes[0].player === 'embed');
+
+      // Le domaine d'un lecteur d'épisode doit être autorisé, sinon la lecture
+      // est bloquée par la politique de sécurité.
+      const csp = (await fetch(BASE + '/login.html')).headers.get('content-security-policy') || '';
+      check('domaine du lecteur d’épisode autorisé par la CSP',
+        csp.includes('lecteur.example.com'), csp.slice(0, 200));
+
+      r = await admin('PUT', '/api/admin/episodes/' + epId, { title: 'Le vrai début' });
+      check('modification d’un épisode', r.status === 200 && r.data.episode.title === 'Le vrai début');
+
+      check('suppression d’un épisode',
+        (await admin('DELETE', '/api/admin/episodes/' + epId)).status === 200);
+      check('il en reste deux',
+        (await alice('GET', '/api/content/' + serieId)).data.item.episodes.length === 2);
+
+      // Les épisodes doivent disparaître avec la série.
+      await admin('DELETE', '/api/admin/content/' + serieId);
+      check('épisodes supprimés avec la série',
+        (await admin('GET', `/api/admin/content/${serieId}/episodes`)).data.episodes.length === 0);
+
+      // La fiche propose des titres proches, pour ne pas finir sur du vide.
+      r = await alice('GET', '/api/content/' + filmId);
+      check('titres similaires proposés', Array.isArray(r.data.similar));
+    }
+
     console.log('\n— Pièces jointes et affiches');
     {
       const jeuId = (await admin('POST', '/api/admin/content', { type: 'jeu', title: 'Jeu joint' })).data.id;

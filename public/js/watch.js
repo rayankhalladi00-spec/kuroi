@@ -38,21 +38,23 @@ function playerHtml(url, kind) {
   // réinjecte jamais le HTML fourni, on reconstruit une balise propre.
   const src = isDrive(url) ? driveEmbed(url) : url;
 
-  // Pas d'attribut « sandbox » sur les lecteurs externes.
+  // Cette balise reste volontairement aussi nue qu'un code d'intégration collé
+  // tel quel, car c'est ainsi que ces lecteurs fonctionnent sur téléphone.
   //
-  // Il en portait un, et le lecteur echouait sur iPhone en affichant sa propre
-  // erreur de chargement, alors que la meme adresse jouait sans probleme depuis
-  // un site qui pose une iframe nue. Safari iOS applique le bac a sable bien
-  // plus severement que Chrome : il coupe l'acces au stockage du cadre, et le
-  // lecteur ne peut plus recuperer son flux — son interface s'affiche, la video
-  // non. Relacher les permissions une par une n'y suffisait pas.
+  // Ni « sandbox », ni « allow ». Les deux ont été ajoutés puis retirés après
+  // avoir cassé la lecture sur iPhone :
   //
-  // La protection de fond reste la CSP : seuls les domaines réellement présents
-  // dans le catalogue peuvent être affichés en cadre. On perd le blocage de la
-  // navigation du parent, c'est le prix d'un lecteur qui fonctionne.
+  //  * sandbox : Safari iOS l'applique bien plus sévèrement que Chrome et
+  //    coupe l'accès au stockage du cadre ;
+  //  * allow : le préciser REMPLACE les permissions par défaut, donc tout ce
+  //    qui n'y est pas listé devient interdit. Un code collé n'en porte pas et
+  //    conserve les permissions par défaut.
+  //
+  // La protection de fond est ailleurs : la CSP n'autorise en cadre que les
+  // domaines réellement présents dans le catalogue, et seule l'adresse extraite
+  // est conservée — jamais le HTML fourni.
   return `<div class="player">
-    <iframe src="${esc(src)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-            allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe>
+    <iframe src="${esc(src)}" frameborder="0" scrolling="no" allowfullscreen></iframe>
   </div>
   <p class="player-fallback">
     Le lecteur reste noir ?

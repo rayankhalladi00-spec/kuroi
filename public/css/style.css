@@ -578,13 +578,25 @@ textarea { resize: vertical; min-height: 84px; line-height: 1.5; }
 .player {
   aspect-ratio: 16 / 9;
   width: 100%;
+  /* Le contenu est positionne en absolu plutot que dimensionne en pourcentage :
+     une hauteur en % doit se resoudre contre une hauteur definie, et Safari ne
+     la deduit pas toujours d'aspect-ratio. Le lecteur demarrait alors dans une
+     boite de hauteur nulle et abandonnait. */
+  position: relative;
   background: #000;
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
 }
-.player iframe, .player video { width: 100%; height: 100%; border: 0; display: block; }
+.player iframe, .player video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
 .player-meta { margin-top: 26px; }
 .player-meta h1 { margin: 0 0 8px; font-size: 30px; font-weight: 700; }
 .player-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }

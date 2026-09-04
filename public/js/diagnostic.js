@@ -137,7 +137,7 @@ function resultat(id, ok, detail) {
   /* Le lecteur en grand, pour voir le message d'erreur exact. */
   document.getElementById('cadre').innerHTML = source
     ? `<div class="player">
-         <iframe src="${esc(source)}" frameborder="0" scrolling="no" allowfullscreen></iframe>
+         <iframe src="${esc(source)}" width="640" height="384" frameborder="0" scrolling="no" allowfullscreen></iframe>
        </div>
        <p class="player-fallback">
          <a href="${esc(source)}" target="_blank" rel="noopener noreferrer">

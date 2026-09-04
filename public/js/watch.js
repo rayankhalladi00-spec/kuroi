@@ -54,7 +54,7 @@ function playerHtml(url, kind) {
   // domaines réellement présents dans le catalogue, et seule l'adresse extraite
   // est conservée — jamais le HTML fourni.
   return `<div class="player">
-    <iframe src="${esc(src)}" frameborder="0" scrolling="no" allowfullscreen></iframe>
+    <iframe src="${esc(src)}" width="640" height="384" frameborder="0" scrolling="no" allowfullscreen></iframe>
   </div>
   <p class="player-fallback">
     Le lecteur reste noir ?

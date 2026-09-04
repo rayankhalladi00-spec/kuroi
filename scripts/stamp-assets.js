@@ -13,6 +13,7 @@ const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..');
 const ASSET_DIRS = [path.join(ROOT, 'public', 'css'), path.join(ROOT, 'public', 'js')];
+const EXTRA_ASSETS = [path.join(ROOT, 'public', 'favicon-32.png')];
 const HTML_DIRS = [path.join(ROOT, 'public'), path.join(ROOT, 'private')];
 
 function filesIn(dir) {
@@ -28,14 +29,14 @@ function filesIn(dir) {
 // Une seule empreinte pour tout le lot : plus simple à raisonner qu'une par
 // fichier, et le site est assez petit pour que ce soit sans conséquence.
 const hash = crypto.createHash('sha256');
-for (const file of ASSET_DIRS.flatMap(filesIn)) {
+for (const file of [...ASSET_DIRS.flatMap(filesIn), ...EXTRA_ASSETS.filter(fs.existsSync)]) {
   hash.update(path.basename(file));
   hash.update(fs.readFileSync(file));
 }
 const version = hash.digest('hex').slice(0, 8);
 
 // href="/css/…" ou src="/js/…", avec ou sans empreinte déjà présente.
-const LINK = /((?:href|src)=")(\/(?:css|js)\/[^"?]+)(?:\?v=[a-f0-9]+)?(")/g;
+const LINK = /((?:href|src)=")(\/(?:css|js)\/[^"?]+|\/favicon-32\.png)(?:\?v=[a-f0-9]+)?(")/g;
 
 let changed = 0;
 for (const file of HTML_DIRS.flatMap(filesIn).filter((f) => f.endsWith('.html'))) {

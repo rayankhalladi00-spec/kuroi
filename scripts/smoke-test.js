@@ -553,6 +553,25 @@ async function waitForServer(proc) {
       check('le CSS est revalidé, pas figé pour des jours',
         !/max-age=(?!0)\d+/.test(cache), `Cache-Control: ${cache}`);
     }
+    // Les navigateurs reclament ces adresses d'eux-memes : elles ne doivent
+    // pas repondre 404, et surtout pas renvoyer la page 404 en HTML.
+    for (const alias of ['/favicon.ico', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png']) {
+      const res = await fetch(BASE + alias);
+      check(`${alias} servi comme image`,
+        res.status === 200 && (res.headers.get('content-type') || '').startsWith('image/'),
+        `HTTP ${res.status} ${res.headers.get('content-type')}`);
+    }
+
+    // Permet de detecter un deploiement dont le redemarrage a echoue : le
+    // processus servirait alors une empreinte differente de celle des pages.
+    {
+      const health = await (await fetch(BASE + '/api/health')).json();
+      const html = await (await fetch(BASE + '/login.html')).text();
+      const inPage = html.match(/style\.css\?v=([a-f0-9]+)/)?.[1];
+      check('le processus sert bien la version des pages',
+        health.ok && health.assets === inPage, `processus ${health.assets} / pages ${inPage}`);
+    }
+
     check('404 sur page inconnue', (await fetch(BASE + '/nexistepas')).status === 404);
     check('dossier private non exposé', (await fetch(BASE + '/admin.html')).status === 404);
   } catch (e) {

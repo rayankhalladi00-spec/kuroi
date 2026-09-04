@@ -16,6 +16,18 @@ const PORT = Number(process.env.PORT) || 3000;
 // l'extérieur et gère le HTTPS.
 const HOST = process.env.HOST || '127.0.0.1';
 const PROD = process.env.NODE_ENV === 'production';
+const STARTED_AT = new Date().toISOString();
+
+// Empreinte des fichiers statiques, telle qu'inscrite dans les pages par
+// scripts/stamp-assets.js. Sert de numero de version du deploiement.
+const ASSET_STAMP = (() => {
+  try {
+    const html = require('fs').readFileSync(path.join(__dirname, 'public', 'login.html'), 'utf8');
+    return html.match(/style\.css\?v=([a-f0-9]+)/)?.[1] || 'inconnu';
+  } catch {
+    return 'inconnu';
+  }
+})();
 
 // Le cookie de session ne peut porter l'attribut « Secure » que si le site est
 // servi en HTTPS : sinon le navigateur le rejette en silence et personne ne
@@ -103,6 +115,22 @@ app.use('/api/admin', require('./routes/admin'));
 // Page admin protégée côté serveur, pas seulement côté client.
 app.get('/admin', requireAdmin, (req, res) =>
   res.sendFile(path.join(__dirname, 'private', 'admin.html'))
+);
+
+// Les navigateurs reclament ces adresses d'eux-memes, meme quand la page
+// designe une autre icone. Sans elles, chaque visite laisse des 404.
+for (const alias of ['/favicon.ico', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png']) {
+  app.get(alias, (req, res) => {
+    res.type('image/png');
+    res.sendFile(path.join(__dirname, 'public', 'favicon-32.png'));
+  });
+}
+
+// Permet de verifier que le processus en cours execute bien le code deploye :
+// un deploiement interrompu avant le redemarrage laisse sinon l'ancien code en
+// memoire, avec des fichiers a jour sur le disque et des routes manquantes.
+app.get('/api/health', (req, res) =>
+  res.json({ ok: true, startedAt: STARTED_AT, assets: ASSET_STAMP })
 );
 
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));

@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Administration — Kuroi</title>
-  <link rel="icon" type="image/png" href="/favicon-32.png?v=7c3a259d">
+  <link rel="icon" type="image/png" href="/favicon-32.png?v=78e027f8">
   <link rel="apple-touch-icon" href="/img/logo-source.jpg">
-  <link rel="stylesheet" href="/css/style.css?v=7c3a259d">
-  <script src="/js/theme.js?v=7c3a259d"></script>
+  <link rel="stylesheet" href="/css/style.css?v=78e027f8">
+  <script src="/js/theme.js?v=78e027f8"></script>
 </head>
 <body>
   <div id="nav"></div>
@@ -47,13 +47,17 @@
     <section id="tab-content" hidden>
       <div class="toolbar">
         <button class="btn btn-primary btn-sm" id="newContentBtn">+ Ajouter un titre</button>
+        <button class="btn btn-sm" id="filterIncomplete" type="button" aria-pressed="false">
+          Il reste a remplir
+        </button>
+        <span class="hint" id="contentSummary" style="margin:0"></span>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>#</th><th>Affiche</th><th>Type</th><th>Titre</th><th>Année</th>
-              <th>Genre</th><th>À la une</th><th>Actions</th>
+              <th>Genre</th><th>Lecteurs</th><th>À la une</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="contentBody"></tbody>
@@ -65,7 +69,8 @@
     <section id="tab-avatars" hidden>
       <div class="toolbar">
         <label class="btn btn-primary" for="avatarFile" style="cursor:pointer">Ajouter une photo</label>
-        <input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp,image/avif,image/gif" hidden>
+        <input id="avatarFile" class="visually-hidden" type="file"
+               accept="image/png,image/jpeg,image/webp,image/avif,image/gif">
         <span class="hint" style="margin:0">
           Les membres choisissent parmi ces photos. Personne ne televerse la sienne :
           une image par compte remplirait le disque. png, jpg, webp, avif, gif — 2 Mo maximum.
@@ -89,7 +94,7 @@
     </div>
   </div>
 
-  <script src="/js/common.js?v=7c3a259d"></script>
-  <script src="/js/admin.js?v=7c3a259d"></script>
+  <script src="/js/common.js?v=78e027f8"></script>
+  <script src="/js/admin.js?v=78e027f8"></script>
 </body>
 </html>

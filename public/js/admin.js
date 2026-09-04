@@ -257,8 +257,43 @@ function newUser() {
 
 /* --------------------------------- contenu -------------------------------- */
 
+// Avancement du remplissage des lecteurs. Sur un catalogue de milliers
+// d'épisodes, c'est la seule façon de voir d'un coup d'œil ce qui reste.
+function avancementHtml(c) {
+  if (c.type !== 'serie') {
+    return c.video_url || c.external_url
+      ? '<span class="fill ok">prêt</span>'
+      : '<span class="fill vide">sans lecteur</span>';
+  }
+  if (!c.episodeCount) return '<span class="fill vide">aucun épisode</span>';
+
+  const n = c.episodesAvecLecteur;
+  const cls = n === 0 ? 'vide' : n === c.episodeCount ? 'ok' : 'partiel';
+  const pct = Math.round((n / c.episodeCount) * 100);
+  return `<span class="fill ${cls}" title="${pct} %">${n}/${c.episodeCount}</span>`;
+}
+
+// Ne montrer que ce qui attend encore un lecteur.
+let seulementIncomplets = false;
+
+function estIncomplet(c) {
+  if (c.type !== 'serie') return !c.video_url && !c.external_url;
+  return c.episodesAvecLecteur < c.episodeCount || !c.episodeCount;
+}
+
 async function loadContent() {
-  const { content } = await api('/api/admin/content');
+  let { content } = await api('/api/admin/content');
+
+  const total = content.reduce((n, c) => n + (c.episodeCount || 0), 0);
+  const remplis = content.reduce((n, c) => n + (c.episodesAvecLecteur || 0), 0);
+  const resume = document.getElementById('contentSummary');
+  if (resume) {
+    resume.textContent = total
+      ? `${remplis} épisode(s) sur ${total} ont un lecteur — il en reste ${total - remplis}.`
+      : 'Aucun épisode au catalogue.';
+  }
+
+  if (seulementIncomplets) content = content.filter(estIncomplet);
   document.getElementById('contentBody').innerHTML = content
     .map(
       (c) => `<tr>
@@ -272,6 +307,7 @@ async function loadContent() {
         <td><b>${esc(c.title)}</b></td>
         <td>${c.year || '—'}</td>
         <td>${esc(c.genre || '—')}</td>
+        <td>${avancementHtml(c)}</td>
         <td>${c.featured ? '★' : ''}</td>
         <td><div class="actions">
           <button class="btn btn-sm" data-cact="edit" data-id="${c.id}">Modifier</button>
@@ -768,8 +804,28 @@ document.getElementById('avatarFile').addEventListener('change', async (e) => {
 document.getElementById('avatarAdminGrid').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-delavatar]');
   if (!b) return;
-  if (!confirm('Supprimer cette photo ? Les comptes qui l’avaient choisie reviendront à leur initiale.'))
+
+  // Confirmation en deux temps plutot qu'une boite native : celle-ci peut etre
+  // bloquee par le navigateur, et le clic ne produit alors rien du tout.
+  if (b.dataset.confirme !== 'oui') {
+    for (const autre of document.querySelectorAll('[data-delavatar][data-confirme]')) {
+      delete autre.dataset.confirme;
+      autre.classList.remove('confirmer');
+      autre.innerHTML = icon('trash');
+    }
+    b.dataset.confirme = 'oui';
+    b.classList.add('confirmer');
+    b.textContent = 'Sûr ?';
+    b.title = 'Cliquer à nouveau pour supprimer définitivement';
+    setTimeout(() => {
+      if (b.dataset.confirme !== 'oui') return;
+      delete b.dataset.confirme;
+      b.classList.remove('confirmer');
+      b.innerHTML = icon('trash');
+    }, 4000);
     return;
+  }
+
   b.disabled = true;
   try {
     await api('/api/admin/avatars/' + encodeURIComponent(b.dataset.delavatar), { method: 'DELETE' });
@@ -837,6 +893,13 @@ document.getElementById('modalBody').addEventListener('click', async (e) => {
 
 document.getElementById('newUserBtn').addEventListener('click', newUser);
 document.getElementById('newContentBtn').addEventListener('click', newContent);
+
+document.getElementById('filterIncomplete').addEventListener('click', (e) => {
+  seulementIncomplets = !seulementIncomplets;
+  e.currentTarget.classList.toggle('btn-primary', seulementIncomplets);
+  e.currentTarget.setAttribute('aria-pressed', String(seulementIncomplets));
+  loadContent().catch(fail);
+});
 
 let searchTimer;
 document.getElementById('userSearch').addEventListener('input', () => {

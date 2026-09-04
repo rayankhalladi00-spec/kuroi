@@ -212,7 +212,32 @@ function normalizeEmbed(c) {
 router.get('/content', (req, res) => {
   const content = db.prepare('SELECT * FROM content ORDER BY type, sort_order, id').all();
   const files = db.prepare('SELECT * FROM files ORDER BY id').all();
-  for (const c of content) c.files = files.filter((f) => f.content_id === c.id);
+
+  // Avancement du remplissage : sur un catalogue de plusieurs milliers
+  // d'épisodes, savoir lesquels attendent encore un lecteur est le seul moyen
+  // de s'y retrouver. Compté en une requête plutôt qu'une par série.
+  const avancement = new Map(
+    db
+      .prepare(
+        `SELECT content_id,
+                COUNT(*) AS total,
+                COUNT(video_url) AS avec_lecteur,
+                MIN(CASE WHEN video_url IS NULL THEN id END) AS premier_vide
+         FROM episodes GROUP BY content_id`
+      )
+      .all()
+      .map((r) => [r.content_id, r])
+  );
+
+  for (const c of content) {
+    c.files = files.filter((f) => f.content_id === c.id);
+    const a = avancement.get(c.id);
+    c.episodeCount = a?.total ?? 0;
+    c.episodesAvecLecteur = a?.avec_lecteur ?? 0;
+    // Permet de sauter droit au premier épisode qui manque.
+    c.premierEpisodeSansLecteur = a?.premier_vide ?? null;
+  }
+
   res.json({ content });
 });
 

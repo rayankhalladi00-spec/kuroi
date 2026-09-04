@@ -306,6 +306,26 @@ async function waitForServer(proc) {
       r = await alice('GET', '/api/content/' + serieId);
       check('les épisodes sont visibles par un membre', r.data.item.episodes?.length === 3,
         JSON.stringify(r.data.item.episodes?.length));
+      // Avancement du remplissage : sur des milliers d'épisodes, c'est le seul
+      // moyen de savoir ce qui attend encore un lecteur.
+      {
+        const liste = (await admin('GET', '/api/admin/content')).data.content;
+        const s = liste.find((c) => c.id === serieId);
+        // On compare au vrai contenu plutôt qu'à un chiffre écrit en dur : le
+        // nombre d'épisodes de cette série change au fil du parcours de test.
+        const reels = (await admin('GET', `/api/admin/content/${serieId}/episodes`)).data.episodes;
+        check('la fiche annonce son nombre d’épisodes', s.episodeCount === reels.length,
+          `${s.episodeCount} annoncés pour ${reels.length} réels`);
+        check('elle compte ceux qui ont un lecteur',
+          s.episodesAvecLecteur === reels.filter((e) => e.video_url).length,
+          String(s.episodesAvecLecteur));
+        check('elle désigne le premier épisode sans lecteur',
+          Number.isInteger(s.premierEpisodeSansLecteur), String(s.premierEpisodeSansLecteur));
+
+        const film = liste.find((c) => c.id === filmId);
+        check('un film n’a pas de décompte d’épisodes', film.episodeCount === 0);
+      }
+
       check('épisodes triés par saison puis numéro',
         r.data.item.episodes.map((e) => `${e.season}-${e.number}`).join(',') === '1-1,1-2,2-1');
       check('décompte des saisons', r.data.item.seasonCount === 2 && r.data.item.episodeCount === 3);

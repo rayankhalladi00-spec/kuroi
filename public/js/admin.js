@@ -476,7 +476,36 @@ async function manageEpisodes(contentId) {
        <label for="epSynopsis">Résumé (facultatif)</label>
        <textarea id="epSynopsis" rows="2" maxlength="800"></textarea>
      </div>
-     <button class="btn btn-primary btn-block" id="epAdd" type="button">${icon('plus')} Ajouter l’épisode</button>`,
+     <button class="btn btn-primary btn-block" id="epAdd" type="button">${icon('plus')} Ajouter l’épisode</button>
+
+     <details class="bulk">
+       <summary>Collage en masse</summary>
+       <p class="hint">
+         Un lecteur par ligne, dans l’ordre des épisodes. Une ligne vide saute le
+         numéro sans rien écrire. Aucun épisode n’est créé : une ligne sans épisode
+         correspondant est signalée.
+       </p>
+       <div class="row-inline" style="display:flex;gap:10px;flex-wrap:wrap">
+         <div class="field" style="flex:0 0 90px;margin:0">
+           <label for="bulkSeason">Saison</label>
+           <input id="bulkSeason" type="number" min="1" max="99" value="1">
+         </div>
+         <div class="field" style="flex:0 0 110px;margin:0">
+           <label for="bulkStart">1<sup>er</sup> épisode</label>
+           <input id="bulkStart" type="number" min="1" max="999" value="1">
+         </div>
+       </div>
+       <div class="field" style="margin-top:12px">
+         <label for="bulkText">Lecteurs</label>
+         <textarea id="bulkText" rows="7" spellcheck="false"
+                   placeholder="https://…&#10;&lt;iframe src=&quot;…&quot;&gt;&lt;/iframe&gt;&#10;https://…"></textarea>
+       </div>
+       <div style="display:flex;gap:9px;flex-wrap:wrap">
+         <button class="btn" id="bulkPreview" type="button">Prévisualiser</button>
+         <button class="btn btn-primary" id="bulkApply" type="button" disabled>Appliquer</button>
+       </div>
+       <div id="bulkResult"></div>
+     </details>`,
     [{ label: 'Fermer', onClick: () => { closeModal(); loadContent(); } }]
   );
 
@@ -485,6 +514,68 @@ async function manageEpisodes(contentId) {
     msg.textContent = text;
     msg.className = `msg show ${kind}`;
   };
+
+  // --- collage en masse ---
+  const bulkRun = async (dry) => {
+    const r = await api(`/api/admin/content/${contentId}/episodes/bulk`, {
+      method: 'POST',
+      body: {
+        season: document.getElementById('bulkSeason').value,
+        start: document.getElementById('bulkStart').value,
+        text: document.getElementById('bulkText').value,
+        dry,
+      },
+    });
+
+    const lignes = r.resultats
+      .map((x) => {
+        const cls = x.etat === 'ok' ? 'ok' : x.etat === 'absent' ? 'warn' : 'error';
+        const droite =
+          x.etat === 'ok' ? esc(new URL(x.url).host) : esc(x.message);
+        return `<div class="bulk-row ${cls}">
+                  <b>E${x.numero}</b>
+                  <span>${esc(x.titre || '')}</span>
+                  <em>${droite}</em>
+                </div>`;
+      })
+      .join('');
+
+    const erreurs = r.resultats.filter((x) => x.etat !== 'ok').length;
+    document.getElementById('bulkResult').innerHTML =
+      `<p class="hint">${r.appliques} lecteur(s) ${dry ? 'prêts à être posés' : 'posés'}${
+        erreurs ? `, ${erreurs} ligne(s) à revoir` : ''
+      }.</p>${lignes}`;
+
+    return r;
+  };
+
+  document.getElementById('bulkPreview').addEventListener('click', async (ev) => {
+    ev.currentTarget.disabled = true;
+    try {
+      const r = await bulkRun(true);
+      // On n'autorise l'application que si quelque chose peut réellement être posé.
+      document.getElementById('bulkApply').disabled = r.appliques === 0;
+    } catch (e) {
+      show(e.message, 'error');
+    } finally {
+      ev.currentTarget.disabled = false;
+    }
+  });
+
+  document.getElementById('bulkApply').addEventListener('click', async (ev) => {
+    ev.currentTarget.disabled = true;
+    try {
+      const r = await bulkRun(false);
+      const { episodes: frais } = await api(`/api/admin/content/${contentId}/episodes`);
+      episodes.length = 0;
+      episodes.push(...frais);
+      document.getElementById('epList').innerHTML = listHtml(episodes);
+      show(`${r.appliques} lecteur(s) enregistré(s).`, 'success');
+    } catch (e) {
+      show(e.message, 'error');
+      ev.currentTarget.disabled = false;
+    }
+  });
 
   document.getElementById('epAdd').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;

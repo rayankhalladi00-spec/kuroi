@@ -1309,3 +1309,12 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   margin-bottom: 4px;
 }
 .season-bar .hint { margin: 0; }
+
+/* Lien de secours sous le lecteur : Safari iOS prive parfois un lecteur tiers
+   de son stockage et il reste noir dans le cadre. */
+.player-fallback {
+  margin: 9px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.player-fallback a { color: var(--accent); }

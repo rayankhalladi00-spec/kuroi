@@ -707,6 +707,16 @@ async function waitForServer(proc) {
       }
       check('aucun script de page n’écrase une fonction de common.js',
         collisions.length === 0, collisions.join(', '));
+
+      // Un onglet d'administration sans sa section reste invisible : le bouton
+      // s'active, rien n'apparaît. C'est arrivé avec l'onglet Photos.
+      const html = fs.readFileSync(path.join(__dirname, '..', 'private', 'admin.html'), 'utf8');
+      const boutons = [...html.matchAll(/class="tab[^"]*"\s+data-tab="([^"]+)"/g)].map((m) => m[1]);
+      const sections = new Set([...html.matchAll(/id="tab-([^"]+)"/g)].map((m) => m[1]));
+      const orphelins = boutons.filter((b) => !sections.has(b));
+      check('chaque onglet d’administration a sa section',
+        boutons.length > 0 && orphelins.length === 0,
+        orphelins.length ? `sans section : ${orphelins.join(', ')}` : 'aucun onglet trouvé');
     }
 
     console.log('\n— Pages statiques');

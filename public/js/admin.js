@@ -779,8 +779,11 @@ document.querySelectorAll('.tab').forEach((t) => {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
     t.classList.add('active');
-    for (const name of ['users', 'content', 'logs'])
-      document.getElementById('tab-' + name).hidden = name !== t.dataset.tab;
+    // La liste des onglets est déduite du HTML plutôt qu'écrite en dur : un
+    // onglet ajouté sans penser à cette ligne restait invisible, le bouton
+    // s'activant sans que sa section n'apparaisse jamais.
+    for (const section of document.querySelectorAll('[id^="tab-"]'))
+      section.hidden = section.id !== 'tab-' + t.dataset.tab;
     if (t.dataset.tab === 'content') loadContent();
     if (t.dataset.tab === 'logs') loadLogs();
     if (t.dataset.tab === 'avatars') loadAvatars();

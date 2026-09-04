@@ -55,11 +55,19 @@ function playerHtml(url, kind) {
     'allow-orientation-lock',
   ].join(' ');
 
+  // Le lien de secours n'est pas décoratif : Safari iOS prive régulièrement un
+  // lecteur tiers de son stockage (blocage du suivi inter-sites), et le lecteur
+  // reste alors noir dans le cadre alors qu'il fonctionne dans son propre
+  // onglet. Il sert donc à la fois de solution de repli et de diagnostic.
   return `<div class="player">
     <iframe src="${esc(src)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
             allowfullscreen webkitallowfullscreen mozallowfullscreen
             sandbox="${bacASable}"></iframe>
-  </div>`;
+  </div>
+  <p class="player-fallback">
+    Le lecteur reste noir ?
+    <a href="${esc(src)}" target="_blank" rel="noopener noreferrer">Ouvrir dans un nouvel onglet</a>
+  </p>`;
 }
 
 /* ------------------------ marquage « vu » automatique ---------------------- */

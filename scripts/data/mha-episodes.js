@@ -2,7 +2,18 @@
 // Titres releves sur la liste des episodes de la Wikipedia francophone.
 // Les resumes sont rediges pour ce site, ils ne recopient aucune source.
 //
-// Utilise par scripts/import-episodes.js.
+// Utilise par scripts/import-anime.js.
+
+// La serie existe deja en base : import-anime.js la retrouve par son titre et
+// se contente de mettre les episodes a jour, sans toucher a son affiche.
+const meta = {
+  title: 'My Hero Academia',
+  year: 2016,
+  genre: 'Action',
+  hue: 130,
+  description:
+    "Dans un monde où presque tout le monde naît avec un pouvoir, un adolescent qui n'en a aucun est choisi par le plus grand des héros pour lui succéder.",
+};
 
 const titles = {
   1: [
@@ -369,4 +380,4 @@ const synopses = {
   ],
 };
 
-module.exports = { titles, synopses };
+module.exports = { meta, titles, synopses };

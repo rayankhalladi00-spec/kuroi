@@ -45,24 +45,21 @@ function playerHtml(url, kind) {
   //
   // La protection de fond n'est pas ici mais dans la CSP : seuls les domaines
   // réellement utilisés par le catalogue peuvent être affichés.
-  const bacASable = [
-    'allow-scripts',
-    'allow-same-origin',
-    'allow-forms',
-    'allow-presentation',
-    'allow-popups',
-    'allow-popups-to-escape-sandbox',
-    'allow-orientation-lock',
-  ].join(' ');
-
-  // Le lien de secours n'est pas décoratif : Safari iOS prive régulièrement un
-  // lecteur tiers de son stockage (blocage du suivi inter-sites), et le lecteur
-  // reste alors noir dans le cadre alors qu'il fonctionne dans son propre
-  // onglet. Il sert donc à la fois de solution de repli et de diagnostic.
+  // Pas d'attribut « sandbox » sur les lecteurs externes.
+  //
+  // Il en portait un, et le lecteur echouait sur iPhone en affichant sa propre
+  // erreur de chargement, alors que la meme adresse jouait sans probleme depuis
+  // un site qui pose une iframe nue. Safari iOS applique le bac a sable bien
+  // plus severement que Chrome : il coupe l'acces au stockage du cadre, et le
+  // lecteur ne peut plus recuperer son flux — son interface s'affiche, la video
+  // non. Relacher les permissions une par une n'y suffisait pas.
+  //
+  // La protection de fond reste la CSP : seuls les domaines réellement présents
+  // dans le catalogue peuvent être affichés en cadre. On perd le blocage de la
+  // navigation du parent, c'est le prix d'un lecteur qui fonctionne.
   return `<div class="player">
     <iframe src="${esc(src)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-            allowfullscreen webkitallowfullscreen mozallowfullscreen
-            sandbox="${bacASable}"></iframe>
+            allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe>
   </div>
   <p class="player-fallback">
     Le lecteur reste noir ?

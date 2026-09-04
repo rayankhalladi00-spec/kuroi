@@ -263,6 +263,11 @@ async function loadContent() {
     .map(
       (c) => `<tr>
         <td>${c.id}</td>
+        <td>${
+          c.poster_url
+            ? `<img class="cell-poster" src="${esc(c.poster_url)}" alt="" loading="lazy">`
+            : '<span class="cell-poster placeholder"></span>'
+        }</td>
         <td><span class="badge">${esc(c.type)}</span></td>
         <td><b>${esc(c.title)}</b></td>
         <td>${c.year || '—'}</td>

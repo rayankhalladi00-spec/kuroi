@@ -1286,3 +1286,15 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   color: #fff;
 }
 .avatar-admin .icon-btn:hover { background: var(--danger); }
+
+/* Vignette d'affiche dans le tableau du contenu. */
+.cell-poster {
+  display: block;
+  width: 34px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--bg-hover);
+}
+.cell-poster.placeholder { background: var(--bg-hover); }

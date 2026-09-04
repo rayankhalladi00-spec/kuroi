@@ -36,10 +36,29 @@ function playerHtml(url, kind) {
   // L'adresse a été extraite côté serveur du code d'intégration : on ne
   // réinjecte jamais le HTML fourni, on reconstruit une balise propre.
   const src = isDrive(url) ? driveEmbed(url) : url;
+
+  // Le bac à sable garde « allow-top-navigation » fermé : c'est ce qui empêche
+  // un lecteur douteux de rediriger le visiteur hors du site. Le reste est
+  // ouvert, car la version mobile de ces lecteurs a besoin de formulaires, de
+  // verrouillage d'orientation et de fenêtres surgissantes pour démarrer —
+  // sans quoi elle reste noire alors que la même page marche sur ordinateur.
+  //
+  // La protection de fond n'est pas ici mais dans la CSP : seuls les domaines
+  // réellement utilisés par le catalogue peuvent être affichés.
+  const bacASable = [
+    'allow-scripts',
+    'allow-same-origin',
+    'allow-forms',
+    'allow-presentation',
+    'allow-popups',
+    'allow-popups-to-escape-sandbox',
+    'allow-orientation-lock',
+  ].join(' ');
+
   return `<div class="player">
     <iframe src="${esc(src)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-            allowfullscreen referrerpolicy="no-referrer"
-            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"></iframe>
+            allowfullscreen webkitallowfullscreen mozallowfullscreen
+            sandbox="${bacASable}"></iframe>
   </div>`;
 }
 

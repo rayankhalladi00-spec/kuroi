@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" role="img" aria-label="Demon Slayer">
   <defs>
     <linearGradient id="f" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="hsl(300 62% 22%)"/>
-      <stop offset="1" stop-color="hsl(340 55% 9%)"/>
+      <stop offset="0" stop-color="hsl(15 62% 22%)"/>
+      <stop offset="1" stop-color="hsl(55 55% 9%)"/>
     </linearGradient>
   </defs>
   <rect width="400" height="600" fill="url(#f)"/>
-  <g fill="none" stroke="hsl(300 70% 60%)" stroke-opacity=".16" stroke-width="2">
+  <g fill="none" stroke="hsl(15 70% 60%)" stroke-opacity=".16" stroke-width="2">
     <circle cx="330" cy="120" r="120"/>
     <circle cx="60" cy="500" r="90"/>
   </g>
@@ -14,5 +14,5 @@
         font-family="Bebas Neue, Impact, sans-serif" font-size="58" letter-spacing="2">
     <tspan x="200" dy="0">DEMON SLAYER</tspan>
   </text>
-  <rect x="150" y="377.8" width="100" height="3" fill="hsl(300 80% 58%)"/>
+  <rect x="150" y="377.8" width="100" height="3" fill="hsl(15 80% 58%)"/>
 </svg>

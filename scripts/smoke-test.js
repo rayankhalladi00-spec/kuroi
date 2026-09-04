@@ -237,6 +237,20 @@ async function waitForServer(proc) {
       check('adresse //… complétée en https',
         r.data.item.video_url === 'https://lecteur.example.com/e/rel', r.data.item.video_url);
 
+      // Plusieurs hébergeurs, dont sibnet, fournissent leur code sans
+      // guillemets autour de src. L'exiger faisait rejeter leur intégration
+      // telle qu'ils la donnent.
+      r = await admin('POST', '/api/admin/content', {
+        type: 'film',
+        title: 'Code sans guillemets',
+        video_url: '<iframe width=640 height=360 src=http://lecteur.example.com/e/nu&share=1></iframe>',
+      });
+      check('code d’intégration sans guillemets accepté', r.status === 200, JSON.stringify(r.data));
+      check('adresse extraite, paramètres conservés, http élevé en https',
+        (await admin('GET', '/api/admin/content')).data.content.find((c) => c.id === r.data.id)
+          ?.video_url === 'https://lecteur.example.com/e/nu&share=1');
+      await admin('DELETE', '/api/admin/content/' + r.data.id);
+
       check('script déguisé en lecteur refusé',
         (await admin('PUT', '/api/admin/content/' + embedded, {
           video_url: '<script>alert(1)</script>',

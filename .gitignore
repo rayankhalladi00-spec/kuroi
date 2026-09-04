@@ -1,5 +1,9 @@
-node_modules/
-data/
-.env
+# Les motifs sont ancres a la racine : sans le « / » initial, « data/ »
+# exclurait aussi scripts/data/, ce qui a deja fait disparaitre un fichier
+# du depot sans avertissement.
+/node_modules/
+/data/
+/data.*/
+/.env
 *.log
 .DS_Store

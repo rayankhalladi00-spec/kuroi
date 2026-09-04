@@ -631,7 +631,22 @@ async function waitForServer(proc) {
       check('tout effacer vide l’historique',
         r.data.supprimees === 2 && (await alice('GET', '/api/history')).data.history.length === 0);
 
-      // Photo de profil : jeu figé, aucun téléversement.
+      // Photo de profil : les membres choisissent dans un jeu figé, ils n'y
+      // déposent rien.
+      //
+      // Le jeu est alimenté ici plutôt que supposé non vide : le site ne livre
+      // plus aucune photo par défaut, c'est l'administration qui le remplit.
+      {
+        const carre = Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+          'base64'
+        );
+        const semis = new FormData();
+        semis.append('file', new Blob([carre], { type: 'image/png' }), 'jeu.png');
+        check('une photo peut être mise à disposition',
+          (await admin('POST', '/api/admin/avatars', semis)).status === 200);
+      }
+
       r = await alice('GET', '/api/auth/avatars');
       check('le jeu de photos est proposé', r.status === 200 && r.data.avatars.length > 0,
         JSON.stringify(r.data).slice(0, 120));

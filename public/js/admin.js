@@ -436,15 +436,54 @@ async function manageEpisodes(contentId) {
     return inSeason.length ? Math.max(...inSeason.map((e) => e.number)) + 1 : 1;
   };
 
+  // La ligne s'ouvre au clic sur un formulaire d'édition : c'est là qu'on colle
+  // le lecteur, épisode par épisode.
   const rowHtml = (e) => `
     <div class="ep-admin" data-epid="${e.id}">
-      <span class="badge">S${e.season}E${e.number}</span>
-      <span class="grow">
-        ${esc(e.title || 'Épisode ' + e.number)}
-        ${e.video_url ? '' : '<span class="missing"> · sans lecteur</span>'}
-      </span>
-      <button class="icon-btn" data-delep="${e.id}" type="button"
-              aria-label="Supprimer l’épisode S${e.season}E${e.number}">${icon('trash')}</button>
+      <div class="ep-admin-head">
+        <button class="ep-admin-open" data-editep="${e.id}" type="button"
+                aria-expanded="false"
+                aria-label="Modifier l’épisode S${e.season}E${e.number}">
+          <span class="badge">S${e.season}E${e.number}</span>
+          <span class="grow">
+            ${esc(e.title || 'Épisode ' + e.number)}
+            ${e.video_url ? '' : '<span class="missing"> · sans lecteur</span>'}
+          </span>
+          <span class="ep-admin-chevron">${icon('up')}</span>
+        </button>
+        <button class="icon-btn" data-delep="${e.id}" type="button"
+                aria-label="Supprimer l’épisode S${e.season}E${e.number}">${icon('trash')}</button>
+      </div>
+      <div class="ep-admin-edit" data-editzone="${e.id}" hidden></div>
+    </div>`;
+
+  const editHtml = (e) => `
+    <div class="field">
+      <label for="edVideo-${e.id}">Lecteur — lien ou code d’intégration</label>
+      <textarea id="edVideo-${e.id}" rows="3" spellcheck="false"
+                placeholder="https://… ou &lt;iframe src=&quot;…&quot;&gt;&lt;/iframe&gt;">${esc(e.video_url || '')}</textarea>
+    </div>
+    <div class="row-inline" style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="field" style="flex:0 0 80px;margin:0">
+        <label for="edSeason-${e.id}">Saison</label>
+        <input id="edSeason-${e.id}" type="number" min="1" max="99" value="${e.season}">
+      </div>
+      <div class="field" style="flex:0 0 80px;margin:0">
+        <label for="edNumber-${e.id}">N°</label>
+        <input id="edNumber-${e.id}" type="number" min="1" max="999" value="${e.number}">
+      </div>
+      <div class="field" style="flex:1;min-width:150px;margin:0">
+        <label for="edTitle-${e.id}">Titre</label>
+        <input id="edTitle-${e.id}" maxlength="150" value="${esc(e.title || '')}">
+      </div>
+    </div>
+    <div class="field" style="margin-top:12px">
+      <label for="edSynopsis-${e.id}">Résumé</label>
+      <textarea id="edSynopsis-${e.id}" rows="2" maxlength="800">${esc(e.synopsis || '')}</textarea>
+    </div>
+    <div style="display:flex;gap:9px">
+      <button class="btn btn-primary btn-sm" data-saveep="${e.id}" type="button">Enregistrer</button>
+      <button class="btn btn-sm" data-canceled="${e.id}" type="button">Annuler</button>
     </div>`;
 
   const listHtml = (list) =>
@@ -476,36 +515,7 @@ async function manageEpisodes(contentId) {
        <label for="epSynopsis">Résumé (facultatif)</label>
        <textarea id="epSynopsis" rows="2" maxlength="800"></textarea>
      </div>
-     <button class="btn btn-primary btn-block" id="epAdd" type="button">${icon('plus')} Ajouter l’épisode</button>
-
-     <details class="bulk">
-       <summary>Collage en masse</summary>
-       <p class="hint">
-         Un lecteur par ligne, dans l’ordre des épisodes. Une ligne vide saute le
-         numéro sans rien écrire. Aucun épisode n’est créé : une ligne sans épisode
-         correspondant est signalée.
-       </p>
-       <div class="row-inline" style="display:flex;gap:10px;flex-wrap:wrap">
-         <div class="field" style="flex:0 0 90px;margin:0">
-           <label for="bulkSeason">Saison</label>
-           <input id="bulkSeason" type="number" min="1" max="99" value="1">
-         </div>
-         <div class="field" style="flex:0 0 110px;margin:0">
-           <label for="bulkStart">1<sup>er</sup> épisode</label>
-           <input id="bulkStart" type="number" min="1" max="999" value="1">
-         </div>
-       </div>
-       <div class="field" style="margin-top:12px">
-         <label for="bulkText">Lecteurs</label>
-         <textarea id="bulkText" rows="7" spellcheck="false"
-                   placeholder="https://…&#10;&lt;iframe src=&quot;…&quot;&gt;&lt;/iframe&gt;&#10;https://…"></textarea>
-       </div>
-       <div style="display:flex;gap:9px;flex-wrap:wrap">
-         <button class="btn" id="bulkPreview" type="button">Prévisualiser</button>
-         <button class="btn btn-primary" id="bulkApply" type="button" disabled>Appliquer</button>
-       </div>
-       <div id="bulkResult"></div>
-     </details>`,
+     <button class="btn btn-primary btn-block" id="epAdd" type="button">${icon('plus')} Ajouter l’épisode</button>`,
     [{ label: 'Fermer', onClick: () => { closeModal(); loadContent(); } }]
   );
 
@@ -515,67 +525,33 @@ async function manageEpisodes(contentId) {
     msg.className = `msg show ${kind}`;
   };
 
-  // --- collage en masse ---
-  const bulkRun = async (dry) => {
-    const r = await api(`/api/admin/content/${contentId}/episodes/bulk`, {
-      method: 'POST',
-      body: {
-        season: document.getElementById('bulkSeason').value,
-        start: document.getElementById('bulkStart').value,
-        text: document.getElementById('bulkText').value,
-        dry,
-      },
-    });
+  // --- edition d'un episode au clic sur sa ligne ---
+  const zoneDe = (id) => document.querySelector(`[data-editzone="${id}"]`);
 
-    const lignes = r.resultats
-      .map((x) => {
-        const cls = x.etat === 'ok' ? 'ok' : x.etat === 'absent' ? 'warn' : 'error';
-        const droite =
-          x.etat === 'ok' ? esc(new URL(x.url).host) : esc(x.message);
-        return `<div class="bulk-row ${cls}">
-                  <b>E${x.numero}</b>
-                  <span>${esc(x.titre || '')}</span>
-                  <em>${droite}</em>
-                </div>`;
-      })
-      .join('');
-
-    const erreurs = r.resultats.filter((x) => x.etat !== 'ok').length;
-    document.getElementById('bulkResult').innerHTML =
-      `<p class="hint">${r.appliques} lecteur(s) ${dry ? 'prêts à être posés' : 'posés'}${
-        erreurs ? `, ${erreurs} ligne(s) à revoir` : ''
-      }.</p>${lignes}`;
-
-    return r;
+  const fermerEdition = (id) => {
+    const zone = zoneDe(id);
+    if (!zone) return;
+    zone.hidden = true;
+    zone.innerHTML = '';
+    document.querySelector(`[data-editep="${id}"]`)?.setAttribute('aria-expanded', 'false');
   };
 
-  document.getElementById('bulkPreview').addEventListener('click', async (ev) => {
-    ev.currentTarget.disabled = true;
-    try {
-      const r = await bulkRun(true);
-      // On n'autorise l'application que si quelque chose peut réellement être posé.
-      document.getElementById('bulkApply').disabled = r.appliques === 0;
-    } catch (e) {
-      show(e.message, 'error');
-    } finally {
-      ev.currentTarget.disabled = false;
-    }
-  });
+  const ouvrirEdition = (id) => {
+    const ep = episodes.find((x) => x.id === Number(id));
+    const zone = zoneDe(id);
+    if (!ep || !zone) return;
 
-  document.getElementById('bulkApply').addEventListener('click', async (ev) => {
-    ev.currentTarget.disabled = true;
-    try {
-      const r = await bulkRun(false);
-      const { episodes: frais } = await api(`/api/admin/content/${contentId}/episodes`);
-      episodes.length = 0;
-      episodes.push(...frais);
-      document.getElementById('epList').innerHTML = listHtml(episodes);
-      show(`${r.appliques} lecteur(s) enregistré(s).`, 'success');
-    } catch (e) {
-      show(e.message, 'error');
-      ev.currentTarget.disabled = false;
+    // Une seule ligne ouverte a la fois : deux formulaires ouverts sur le meme
+    // episode se marcheraient dessus.
+    for (const autre of document.querySelectorAll('[data-editzone]')) {
+      if (autre !== zone) fermerEdition(autre.dataset.editzone);
     }
-  });
+
+    zone.innerHTML = editHtml(ep);
+    zone.hidden = false;
+    document.querySelector(`[data-editep="${id}"]`)?.setAttribute('aria-expanded', 'true');
+    zone.querySelector('textarea')?.focus();
+  };
 
   document.getElementById('epAdd').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
@@ -609,6 +585,48 @@ async function manageEpisodes(contentId) {
   });
 
   document.getElementById('epList').addEventListener('click', async (ev) => {
+    const ouvrir = ev.target.closest('[data-editep]');
+    if (ouvrir) {
+      const id = ouvrir.dataset.editep;
+      const zone = zoneDe(id);
+      if (zone && !zone.hidden) fermerEdition(id);
+      else ouvrirEdition(id);
+      return;
+    }
+
+    if (ev.target.closest('[data-canceled]')) {
+      fermerEdition(ev.target.closest('[data-canceled]').dataset.canceled);
+      return;
+    }
+
+    const enregistrer = ev.target.closest('[data-saveep]');
+    if (enregistrer) {
+      const id = enregistrer.dataset.saveep;
+      enregistrer.disabled = true;
+      try {
+        const r = await api('/api/admin/episodes/' + id, {
+          method: 'PUT',
+          body: {
+            season: document.getElementById('edSeason-' + id).value,
+            number: document.getElementById('edNumber-' + id).value,
+            title: document.getElementById('edTitle-' + id).value,
+            video_url: document.getElementById('edVideo-' + id).value,
+            synopsis: document.getElementById('edSynopsis-' + id).value,
+          },
+        });
+        const i = episodes.findIndex((e) => e.id === Number(id));
+        if (i >= 0) episodes[i] = r.episode;
+        episodes.sort((a, b2) => a.season - b2.season || a.number - b2.number);
+        document.getElementById('epList').innerHTML = listHtml(episodes);
+        show(r.notice || `S${r.episode.season}E${r.episode.number} enregistré.`,
+          r.notice ? 'warn' : 'success');
+      } catch (e) {
+        enregistrer.disabled = false;
+        show(e.message, 'error');
+      }
+      return;
+    }
+
     const b = ev.target.closest('[data-delep]');
     if (!b) return;
     b.disabled = true;
@@ -674,6 +692,70 @@ function contentAction(act, id) {
 
 /* --------------------------------- journal -------------------------------- */
 
+/* ------------------------------ photos de profil --------------------------- */
+
+async function loadAvatars() {
+  const { avatars } = await api('/api/admin/avatars');
+  const grille = document.getElementById('avatarAdminGrid');
+
+  grille.innerHTML = avatars.length
+    ? avatars
+        .map(
+          (a) => `<div class="avatar-admin">
+                    <img src="${esc(a.url)}" alt="${esc(a.id)}">
+                    <button class="icon-btn" data-delavatar="${esc(a.id)}" type="button"
+                            aria-label="Supprimer cette photo">${icon('trash')}</button>
+                  </div>`
+        )
+        .join('')
+    : '<p class="hint">Aucune photo. Ajoutes-en une pour que les membres puissent choisir.</p>';
+}
+
+function avatarMsg(texte, type) {
+  const el = document.getElementById('avatarMsg');
+  el.textContent = texte;
+  el.className = 'msg show ' + type;
+}
+
+document.getElementById('avatarFile').addEventListener('change', async (e) => {
+  const fichier = e.target.files?.[0];
+  if (!fichier) return;
+
+  const form = new FormData();
+  form.append('file', fichier);
+  try {
+    const res = await fetch('/api/admin/avatars', {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: form, // pas de Content-Type manuel : le navigateur pose la frontiere
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Envoi échoué (${res.status})`);
+    avatarMsg('Photo ajoutée.', 'success');
+    loadAvatars();
+  } catch (err) {
+    avatarMsg(err.message, 'error');
+  } finally {
+    e.target.value = ''; // permet de renvoyer le meme fichier apres correction
+  }
+});
+
+document.getElementById('avatarAdminGrid').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-delavatar]');
+  if (!b) return;
+  if (!confirm('Supprimer cette photo ? Les comptes qui l’avaient choisie reviendront à leur initiale.'))
+    return;
+  b.disabled = true;
+  try {
+    await api('/api/admin/avatars/' + encodeURIComponent(b.dataset.delavatar), { method: 'DELETE' });
+    avatarMsg('Photo supprimée.', 'success');
+    loadAvatars();
+  } catch (err) {
+    b.disabled = false;
+    avatarMsg(err.message, 'error');
+  }
+});
+
 async function loadLogs() {
   const { logs } = await api('/api/admin/logs');
   document.getElementById('logsBody').innerHTML = logs
@@ -696,6 +778,7 @@ document.querySelectorAll('.tab').forEach((t) => {
       document.getElementById('tab-' + name).hidden = name !== t.dataset.tab;
     if (t.dataset.tab === 'content') loadContent();
     if (t.dataset.tab === 'logs') loadLogs();
+    if (t.dataset.tab === 'avatars') loadAvatars();
   });
 });
 

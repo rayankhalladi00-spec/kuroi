@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Administration — Kuroi</title>
-  <link rel="icon" type="image/png" href="/favicon-32.png?v=dea65803">
+  <link rel="icon" type="image/png" href="/favicon-32.png?v=3aa28922">
   <link rel="apple-touch-icon" href="/img/logo-source.jpg">
-  <link rel="stylesheet" href="/css/style.css?v=dea65803">
-  <script src="/js/theme.js?v=dea65803"></script>
+  <link rel="stylesheet" href="/css/style.css?v=3aa28922">
+  <script src="/js/theme.js?v=3aa28922"></script>
 </head>
 <body>
   <div id="nav"></div>
@@ -20,6 +20,7 @@
     <div class="tabs">
       <button class="tab active" data-tab="users">Utilisateurs</button>
       <button class="tab" data-tab="content">Contenu</button>
+      <button class="tab" data-tab="avatars">Photos</button>
       <button class="tab" data-tab="logs">Journal</button>
     </div>
 
@@ -61,6 +62,19 @@
     </section>
 
     <!-- Journal -->
+    <section id="tab-avatars" hidden>
+      <div class="toolbar">
+        <label class="btn btn-primary" for="avatarFile" style="cursor:pointer">Ajouter une photo</label>
+        <input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp,image/avif,image/gif" hidden>
+        <span class="hint" style="margin:0">
+          Les membres choisissent parmi ces photos. Personne ne televerse la sienne :
+          une image par compte remplirait le disque. png, jpg, webp, avif, gif — 2 Mo maximum.
+        </span>
+      </div>
+      <div class="msg" id="avatarMsg"></div>
+      <div class="avatar-grid" id="avatarAdminGrid"></div>
+    </section>
+
     <section id="tab-logs" hidden>
       <ul class="log-list" id="logsBody"></ul>
     </section>
@@ -75,7 +89,7 @@
     </div>
   </div>
 
-  <script src="/js/common.js?v=dea65803"></script>
-  <script src="/js/admin.js?v=dea65803"></script>
+  <script src="/js/common.js?v=3aa28922"></script>
+  <script src="/js/admin.js?v=3aa28922"></script>
 </body>
 </html>

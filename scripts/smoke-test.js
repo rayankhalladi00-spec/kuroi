@@ -488,59 +488,6 @@ async function waitForServer(proc) {
       await admin('DELETE', '/api/admin/content/' + serie);
     }
 
-    console.log('\n— Collage en masse des lecteurs');
-    {
-      const serie = (await admin('POST', '/api/admin/content', { type: 'serie', title: 'Collage Test' })).data.id;
-      for (const n of [1, 2, 3, 4]) {
-        await admin('POST', `/api/admin/content/${serie}/episodes`, { season: 1, number: n, title: 'Ep ' + n });
-      }
-
-      const colle = (body) =>
-        admin('POST', `/api/admin/content/${serie}/episodes/bulk`, { season: 1, start: 1, ...body });
-
-      // La prévisualisation ne doit rien écrire.
-      r = await colle({ dry: true, text: 'https://lecteur.example.com/a\nhttps://lecteur.example.com/b' });
-      check('prévisualisation : 2 lecteurs annoncés', r.data.appliques === 2, JSON.stringify(r.data));
-      check('prévisualisation : rien n’est écrit',
-        (await admin('GET', `/api/admin/content/${serie}/episodes`)).data.episodes.every((e) => !e.video_url));
-
-      // Ligne vide : saute le numéro sans écraser.
-      r = await colle({
-        text: 'https://lecteur.example.com/a\n\n<iframe src="https://lecteur.example.com/c"></iframe>',
-      });
-      check('collage appliqué', r.data.appliques === 2, JSON.stringify(r.data.resultats));
-
-      let eps = (await admin('GET', `/api/admin/content/${serie}/episodes`)).data.episodes;
-      check('E1 renseigné', eps[0].video_url === 'https://lecteur.example.com/a', eps[0].video_url);
-      check('E2 sauté par la ligne vide', !eps[1].video_url, eps[1].video_url);
-      check('E3 extrait du code d’intégration',
-        eps[2].video_url === 'https://lecteur.example.com/c', eps[2].video_url);
-      check('E4 intact', !eps[3].video_url);
-
-      // Débordement : aucun épisode ne doit être créé.
-      r = await colle({ start: 4, text: 'https://lecteur.example.com/d\nhttps://lecteur.example.com/trop' });
-      check('la ligne en trop est signalée',
-        r.data.resultats.some((x) => x.etat === 'absent' && x.numero === 5), JSON.stringify(r.data.resultats));
-      check('aucun épisode fantôme créé',
-        (await admin('GET', `/api/admin/content/${serie}/episodes`)).data.episodes.length === 4);
-
-      // Une ligne invalide ne doit pas empêcher les autres de passer.
-      r = await colle({ start: 1, text: 'javascript:alert(1)\nhttps://lecteur.example.com/ok2' });
-      check('ligne dangereuse rejetée',
-        r.data.resultats.some((x) => x.numero === 1 && x.etat === 'erreur'), JSON.stringify(r.data.resultats));
-      check('les lignes valides passent quand même', r.data.appliques === 1);
-      eps = (await admin('GET', `/api/admin/content/${serie}/episodes`)).data.episodes;
-      check('l’épisode visé par la ligne dangereuse est inchangé',
-        eps[0].video_url === 'https://lecteur.example.com/a', eps[0].video_url);
-
-      check('un membre ne peut pas coller en masse',
-        (await alice('POST', `/api/admin/content/${serie}/episodes/bulk`, { text: 'https://x.example.com/a' })).status === 403);
-      check('collage refusé sur un film',
-        (await admin('POST', `/api/admin/content/${filmId}/episodes/bulk`, { text: 'https://x.example.com/a' })).status === 400);
-
-      await admin('DELETE', '/api/admin/content/' + serie);
-    }
-
     console.log('\n— Historique et photo de profil');
     {
       const serie = (await admin('POST', '/api/admin/content', { type: 'serie', title: 'Histo Test' })).data.id;

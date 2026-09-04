@@ -4,9 +4,15 @@ const bcrypt = require('bcryptjs');
 const { db, audit } = require('../db');
 const { requireAdmin } = require('../middleware/auth');
 const { extractEmbedUrl, invalidateEmbedHosts } = require('../lib/embed');
+const fsp = require('fs');
+const path = require('path');
+const avatarsLib = require('../lib/avatars');
 const {
   upload,
   uploadImage,
+  uploadAvatar,
+  AVATAR_DIR,
+  MAX_AVATAR_SIZE,
   ALLOWED_EXT,
   MAX_SIZE,
   IMAGE_EXT,
@@ -380,73 +386,6 @@ router.put('/episodes/:id', (req, res) => {
   });
 });
 
-// Collage en masse : une adresse ou un code d'intégration par ligne, affectés
-// aux épisodes d'une saison à partir d'un numéro de départ.
-//
-// Ne crée aucun épisode : une ligne sans épisode correspondant est signalée
-// plutôt qu'insérée. Une faute de frappe dans le numéro de départ produirait
-// sinon une série d'épisodes fantômes.
-//
-// Une ligne vide saute le numéro sans rien écrire : c'est ce qui permet de
-// coller une liste trouée sans décaler tout le reste.
-router.post('/content/:id/episodes/bulk', (req, res) => {
-  const content = db.prepare('SELECT id, type, title FROM content WHERE id = ?').get(req.params.id);
-  if (!content) return res.status(404).json({ error: 'Contenu introuvable' });
-  if (content.type !== 'serie')
-    return res.status(400).json({ error: 'Seules les séries ont des épisodes.' });
-
-  const season = Number(req.body.season) || 1;
-  const start = Number(req.body.start) || 1;
-  const dry = req.body.dry === true;
-
-  const lines = String(req.body.text || '').split(/\r?\n/);
-  if (!lines.length) return res.status(400).json({ error: 'Rien à coller.' });
-
-  const bySlot = new Map(
-    db
-      .prepare('SELECT id, season, number, title FROM episodes WHERE content_id = ?')
-      .all(content.id)
-      .map((e) => [`${e.season}-${e.number}`, e])
-  );
-
-  const update = db.prepare('UPDATE episodes SET video_url = ? WHERE id = ?');
-  const resultats = [];
-  let appliques = 0;
-
-  lines.forEach((brut, i) => {
-    const numero = start + i;
-    const ligne = brut.trim();
-    const ep = bySlot.get(`${season}-${numero}`);
-
-    if (!ligne) return; // ligne vide : on saute ce numéro sans rien changer
-
-    if (!ep) {
-      resultats.push({ numero, etat: 'absent', message: `Aucun épisode S${season}E${numero}.` });
-      return;
-    }
-
-    let url;
-    try {
-      ({ url } = extractEmbedUrl(ligne));
-    } catch (e) {
-      resultats.push({ numero, etat: 'erreur', titre: ep.title, message: e.message });
-      return;
-    }
-
-    if (!dry) update.run(url, ep.id);
-    appliques++;
-    resultats.push({ numero, etat: 'ok', titre: ep.title, url });
-  });
-
-  if (!dry && appliques) {
-    invalidateEmbedHosts();
-    audit(req.user, 'bulk_episodes', `content#${content.id}`,
-      `${content.title} : ${appliques} lecteurs saison ${season}`);
-  }
-
-  res.json({ ok: true, dry, appliques, resultats });
-});
-
 router.delete('/episodes/:id', (req, res) => {
   const ep = db.prepare('SELECT * FROM episodes WHERE id = ?').get(req.params.id);
   if (!ep) return res.status(404).json({ error: 'Épisode introuvable' });
@@ -455,6 +394,51 @@ router.delete('/episodes/:id', (req, res) => {
   invalidateEmbedHosts();
   audit(req.user, 'delete_episode', `content#${ep.content_id}`, `S${ep.season}E${ep.number}`);
   res.json({ ok: true });
+});
+
+/* --------------------------- photos de profil ------------------------------ */
+
+// Les membres choisissent parmi un jeu figé ; c'est l'administration qui
+// alimente ce jeu. Personne d'autre ne téléverse, ce qui évite de stocker une
+// image par compte sur le disque.
+router.get('/avatars', (req, res) => res.json({ avatars: avatarsLib.list() }));
+
+router.post('/avatars', (req, res) => {
+  uploadAvatar.single('file')(req, res, (err) => {
+    if (err)
+      return res.status(400).json({
+        error:
+          err.code === 'LIMIT_FILE_SIZE'
+            ? `Image trop lourde (maximum ${Math.round(MAX_AVATAR_SIZE / 1024 / 1024)} Mo).`
+            : err.message,
+      });
+    if (!req.file) return res.status(400).json({ error: 'Aucune image reçue.' });
+
+    // L'extension ne prouve rien : on vérifie la signature du fichier.
+    if (!sniffImage(req.file.path)) {
+      fsp.unlinkSync(req.file.path);
+      return res.status(400).json({ error: "Ce fichier n'est pas une image valide." });
+    }
+
+    audit(req.user, 'add_avatar', null, req.file.filename);
+    res.json({ ok: true, avatars: avatarsLib.list() });
+  });
+});
+
+router.delete('/avatars/:id', (req, res) => {
+  const photo = avatarsLib.list().find((a) => a.id === req.params.id);
+  if (!photo) return res.status(404).json({ error: 'Photo introuvable' });
+
+  try {
+    fsp.unlinkSync(path.join(AVATAR_DIR, path.basename(photo.url)));
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e;
+  }
+  // Les comptes qui l'avaient choisie retombent sur leur initiale.
+  db.prepare('UPDATE users SET avatar = NULL WHERE avatar = ?').run(photo.id);
+
+  audit(req.user, 'delete_avatar', null, photo.id);
+  res.json({ ok: true, avatars: avatarsLib.list() });
 });
 
 /* ------------------------------ pièces jointes ----------------------------- */

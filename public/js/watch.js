@@ -280,18 +280,40 @@ function noteHtml(cible) {
   </div>`;
 }
 
-function commentaireHtml(c) {
-  const mien = c.user_id === utilisateur?.id;
-  const effacable = mien || utilisateur?.role === 'admin';
-  return `<article class="commentaire" data-com="${c.id}">
-    <div class="commentaire-tete">
-      <b>${nomAvecRole(c.author, c.author_role)}</b>
-      <time>${esc(quandCourt(c.created_at))}</time>
-      ${effacable ? `<button class="icon-btn" data-delcom="${c.id}" type="button"
-                             aria-label="Supprimer ce commentaire">${icon('trash')}</button>` : ''}
+function commentaireHtml(c, reponse = false) {
+  const effacable = c.user_id === utilisateur?.id || utilisateur?.role === 'admin';
+  // avatarHtml attend un membre : le commentaire en porte de quoi en faire un.
+  const photo = avatarHtml({ avatarUrl: c.avatarUrl, username: c.author }, 'com-avatar');
+
+  return `<article class="commentaire ${reponse ? 'reponse' : ''}" data-com="${c.id}">
+    ${photo}
+    <div class="commentaire-corps">
+      <div class="commentaire-tete">
+        <b>${nomAvecRole(c.author, c.author_role)}</b>
+        <time>${esc(quandCourt(c.created_at))}</time>
+        ${effacable ? `<button class="icon-btn" data-delcom="${c.id}" type="button"
+                               aria-label="Supprimer ce commentaire">${icon('trash')}</button>` : ''}
+      </div>
+      <p>${esc(c.body)}</p>
+      <div class="commentaire-actions">
+        <button class="com-like ${c.liked ? 'on' : ''}" data-like="${c.id}" type="button"
+                aria-pressed="${!!c.liked}"
+                aria-label="${c.liked ? 'Retirer mon j’aime' : 'J’aime ce commentaire'}">
+          ${icon('heart')}<span class="com-like-n">${c.likes || ''}</span>
+        </button>
+        <button class="com-lien" data-repondre="${c.id}" type="button">Répondre</button>
+      </div>
+      <div class="com-reponses" data-reponses="${c.id}">
+        ${(c.replies || []).map((r) => commentaireHtml(r, true)).join('')}
+      </div>
     </div>
-    <p>${esc(c.body)}</p>
   </article>`;
+}
+
+// Compte le fil entier : le compteur affiche le nombre de messages, réponses
+// comprises, pas seulement le nombre de fils.
+function totalCommentaires(fils) {
+  return fils.reduce((n, c) => n + 1 + (c.replies?.length || 0), 0);
 }
 
 function quandCourt(s) {
@@ -348,6 +370,29 @@ function badgeNote(e) {
   return bouts.join('');
 }
 
+// Un seul formulaire de reponse ouvert a la fois : deux champs vides sous deux
+// messages differents ne servent qu'a se tromper de destinataire.
+function ouvrirReponse(id) {
+  const ancien = document.querySelector('.reponse-form');
+  const memeCible = ancien?.dataset.parent === String(id);
+  ancien?.remove();
+  if (memeCible) return; // deuxieme clic sur « Répondre » : on referme
+
+  const fil = document.querySelector(`[data-reponses="${id}"]`);
+  if (!fil) return;
+  fil.insertAdjacentHTML(
+    'beforeend',
+    `<form class="reponse-form" data-parent="${id}">
+       <textarea rows="2" maxlength="1000" placeholder="Ta réponse…"></textarea>
+       <div class="reponse-actions">
+         <button class="btn btn-primary btn-sm" type="submit">Répondre</button>
+         <button class="btn btn-sm btn-ghost" data-annule-reponse type="button">Annuler</button>
+       </div>
+     </form>`
+  );
+  fil.querySelector('.reponse-form textarea').focus();
+}
+
 async function renderSocial() {
   const box = document.getElementById('episodeSocial');
   if (!box) return;
@@ -374,10 +419,14 @@ async function renderSocial() {
 
   try {
     const { comments } = await api(`/api/episodes/${cible.id}/comments`);
+    // Passer la fonction directement donnerait l'index en second argument, que
+    // commentaireHtml lirait comme « ceci est une reponse ».
     document.getElementById('comList').innerHTML = comments.length
-      ? comments.map(commentaireHtml).join('')
+      ? comments.map((c) => commentaireHtml(c)).join('')
       : '<p class="hint">Personne n’a encore réagi.</p>';
-    document.getElementById('comCount').textContent = comments.length || '';
+    cible.commentaires = totalCommentaires(comments);
+    document.getElementById('comCount').textContent = cible.commentaires || '';
+    majNoteListe(cible);
   } catch {
     document.getElementById('comList').innerHTML =
       '<p class="hint">Les commentaires n’ont pas pu être chargés.</p>';
@@ -642,13 +691,40 @@ function wirePage() {
 
     if (e.target.closest('#noteRetirer')) return void noter(cible, null);
 
+    const aime = e.target.closest('[data-like]');
+    if (aime) {
+      aime.disabled = true;
+      try {
+        const r = await api(`/api/episodes/comments/${aime.dataset.like}/like`, { method: 'POST' });
+        aime.classList.toggle('on', r.liked);
+        aime.setAttribute('aria-pressed', String(r.liked));
+        aime.querySelector('.com-like-n').textContent = r.likes || '';
+      } catch (err) {
+        alert(err.message || 'Impossible pour le moment.');
+      } finally {
+        aime.disabled = false;
+      }
+      return;
+    }
+
+    const repondre = e.target.closest('[data-repondre]');
+    if (repondre) return void ouvrirReponse(repondre.dataset.repondre);
+
+    const annule = e.target.closest('[data-annule-reponse]');
+    if (annule) return void annule.closest('.reponse-form').remove();
+
     const del = e.target.closest('[data-delcom]');
     if (del) {
       del.disabled = true;
       try {
-        await api(`/api/episodes/comments/${del.dataset.delcom}`, { method: 'DELETE' });
+        // Supprimer un message emporte ses reponses : le serveur dit combien
+        // de lignes ont disparu, le compteur suit.
+        const r = await api(`/api/episodes/comments/${del.dataset.delcom}`, { method: 'DELETE' });
         document.querySelector(`[data-com="${del.dataset.delcom}"]`)?.remove();
-        majCompteurCommentaires(cible, -1);
+        majCompteurCommentaires(cible, -(r.supprimes || 1));
+        const liste = document.getElementById('comList');
+        if (liste && !liste.querySelector('.commentaire'))
+          liste.innerHTML = '<p class="hint">Personne n’a encore réagi.</p>';
       } catch (err) {
         del.disabled = false;
         alert(err.message || 'Suppression impossible.');
@@ -657,11 +733,13 @@ function wirePage() {
   });
 
   social?.addEventListener('submit', async (e) => {
-    if (e.target.id !== 'comForm') return;
+    const formulaire = e.target;
+    const racine = formulaire.id === 'comForm';
+    if (!racine && !formulaire.classList.contains('reponse-form')) return;
     e.preventDefault();
 
     const cible = cibleCourante();
-    const champ = document.getElementById('comBody');
+    const champ = formulaire.querySelector('textarea');
     const texte = champ.value.trim();
     if (!cible || !texte) return;
 
@@ -669,20 +747,28 @@ function wirePage() {
     try {
       const { comment } = await api(`/api/episodes/${cible.id}/comments`, {
         method: 'POST',
-        body: { body: texte },
+        body: { body: texte, parentId: racine ? null : Number(formulaire.dataset.parent) },
       });
-      champ.value = '';
-      const liste = document.getElementById('comList');
-      // Le premier commentaire remplace le texte d'attente ; les suivants
-      // s'ajoutent en tete, comme les renvoie le serveur.
-      if (!liste.querySelector('.commentaire')) liste.innerHTML = '';
-      liste.insertAdjacentHTML('afterbegin', commentaireHtml(comment));
+
+      if (racine) {
+        champ.value = '';
+        const liste = document.getElementById('comList');
+        // Le premier commentaire remplace le texte d'attente ; les suivants
+        // s'ajoutent en tete, comme les renvoie le serveur.
+        if (!liste.querySelector('.commentaire')) liste.innerHTML = '';
+        liste.insertAdjacentHTML('afterbegin', commentaireHtml(comment));
+      } else {
+        // La reponse se range sous le message d'origine, en fin de fil.
+        const fil = document.querySelector(`[data-reponses="${comment.parent_id}"]`);
+        fil?.insertAdjacentHTML('beforeend', commentaireHtml(comment, true));
+        formulaire.remove();
+      }
       majCompteurCommentaires(cible, +1);
     } catch (err) {
       alert(err.message || 'Publication impossible.');
     } finally {
       champ.disabled = false;
-      champ.focus();
+      if (racine) champ.focus();
     }
   });
 

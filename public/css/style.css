@@ -1468,13 +1468,32 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 }
 #comBody:focus { outline: none; border-color: var(--accent); }
 
+/* La photo a gauche, le message a droite. */
 .commentaire {
+  display: flex;
+  gap: 11px;
   padding: 12px 14px;
   margin-bottom: 9px;
   background: var(--bg-elev);
   border: 1px solid var(--line);
   border-radius: 9px;
 }
+.commentaire-corps { flex: 1; min-width: 0; }
+
+.com-avatar {
+  flex: none;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+/* Sans photo choisie : l'initiale, dans le meme gabarit rond. */
+span.com-avatar {
+  display: grid; place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700; font-size: 15px;
+}
+
 .commentaire-tete {
   display: flex; align-items: center; gap: 9px;
   margin-bottom: 5px; font-size: 13px;
@@ -1483,6 +1502,52 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 /* Le bouton de suppression se pousse a droite sans marge codee en dur. */
 .commentaire-tete .icon-btn { margin-left: auto; width: 28px; height: 28px; }
 .commentaire p { margin: 0; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.commentaire-actions {
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 7px;
+}
+.com-like, .com-lien {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 0;
+  border: 0; background: none;
+  color: var(--text-faint);
+  font: inherit; font-size: 13px;
+  cursor: pointer;
+  transition: color var(--fast) var(--ease);
+}
+.com-like:hover, .com-lien:hover { color: var(--text); }
+.com-like svg { width: 15px; height: 15px; }
+.com-like.on { color: var(--accent); }
+.com-like.on svg { fill: currentColor; }
+.com-like-n { font-variant-numeric: tabular-nums; }
+
+/* Un seul niveau de reponses : un liseré suffit à montrer le rattachement,
+   sans empiler les décalages. */
+.com-reponses:not(:empty) {
+  margin-top: 10px;
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+}
+.commentaire.reponse {
+  padding: 10px 12px;
+  background: var(--bg);
+}
+.commentaire.reponse .com-avatar { width: 28px; height: 28px; font-size: 13px; }
+
+.reponse-form { margin-top: 8px; }
+.reponse-form textarea {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+.reponse-form textarea:focus { outline: none; border-color: var(--accent); }
+.reponse-actions { display: flex; gap: 8px; margin-top: 7px; }
 
 /* Pastilles de la liste des episodes : moyenne et nombre d'avis. */
 .ep-note { flex: none; display: flex; gap: 8px; align-items: center; font-size: 12px; }

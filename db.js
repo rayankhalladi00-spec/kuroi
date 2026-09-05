@@ -170,9 +170,20 @@ CREATE TABLE IF NOT EXISTS episode_comments (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   episode_id INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
   user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  -- Reponse a un autre commentaire. Un seul niveau : repondre a une reponse
+  -- rattache au meme fil, sinon l'affichage part en escalier sans fin.
+  parent_id  INTEGER REFERENCES episode_comments(id) ON DELETE CASCADE,
   author     TEXT NOT NULL,
   body       TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now'))
+);
+
+-- « J'aime » sur un commentaire : une voix par membre, garantie par la cle.
+CREATE TABLE IF NOT EXISTS comment_likes (
+  comment_id INTEGER NOT NULL REFERENCES episode_comments(id) ON DELETE CASCADE,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (comment_id, user_id)
 );
 
 -- Favoris : « ma liste » de chaque membre.
@@ -201,6 +212,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_watched_unique
 CREATE INDEX IF NOT EXISTS idx_sources_episode ON episode_sources(episode_id, position);
 CREATE INDEX IF NOT EXISTS idx_ratings_episode ON episode_ratings(episode_id);
 CREATE INDEX IF NOT EXISTS idx_comments_episode ON episode_comments(episode_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_comment_likes ON comment_likes(comment_id);
 CREATE INDEX IF NOT EXISTS idx_watched_user ON watched(user_id, watched_at DESC);
 CREATE INDEX IF NOT EXISTS idx_watched_content ON watched(user_id, content_id);
 CREATE INDEX IF NOT EXISTS idx_content_type ON content(type);
@@ -219,6 +231,15 @@ function ensureColumn(table, column, definition) {
 }
 
 ensureColumn('users', 'avatar', 'TEXT');
+// La base de production a ete creee avant les reponses : la colonne doit etre
+// ajoutee explicitement. ALTER TABLE ne pose pas de cle etrangere apres coup,
+// d'ou le rattachement verifie dans la route plutot que par le moteur.
+ensureColumn('episode_comments', 'parent_id', 'INTEGER REFERENCES episode_comments(id)');
+
+// Cet index porte sur une colonne ajoutee par migration : il doit donc etre
+// cree apres elle, et non dans le bloc de creation initial, qui s'execute
+// avant sur une base deja en place.
+db.exec('CREATE INDEX IF NOT EXISTS idx_comments_parent ON episode_comments(parent_id)');
 
 function audit(actor, action, target, details) {
   db.prepare(

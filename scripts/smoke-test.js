@@ -663,15 +663,77 @@ async function waitForServer(proc) {
         check('le plus récent en premier', r.data.comments[0].id === comAdmin);
         check('un membre ordinaire n’a pas d’étoile',
           r.data.comments.find((c) => c.id === comAlice).author_role === 'user');
+        check('la photo de profil accompagne le commentaire',
+          'avatarUrl' in r.data.comments[0], Object.keys(r.data.comments[0]).join(','));
 
         check('la fiche compte les commentaires',
           (await alice('GET', '/api/content/' + serie)).data.item.episodes
             .find((e) => e.id === ep).commentaires === 2);
 
+        // « J'aime » : un simple bascule, une voix par membre.
+        r = await alice('POST', `/api/episodes/comments/${comAdmin}/like`);
+        check('j’aime enregistré', r.status === 200 && r.data.liked === true && r.data.likes === 1,
+          JSON.stringify(r.data));
+        r = await alice('POST', `/api/episodes/comments/${comAdmin}/like`);
+        check('second clic retire le j’aime', r.data.liked === false && r.data.likes === 0);
+        await alice('POST', `/api/episodes/comments/${comAdmin}/like`);
+        r = await admin('POST', `/api/episodes/comments/${comAdmin}/like`);
+        check('les j’aime s’additionnent entre membres', r.data.likes === 2, String(r.data.likes));
+        check('j’aime sur un commentaire inexistant refusé',
+          (await alice('POST', '/api/episodes/comments/999999/like')).status === 404);
+
+        r = await alice('GET', `/api/episodes/${ep}/comments`);
+        {
+          const vu = r.data.comments.find((c) => c.id === comAdmin);
+          check('la liste porte le décompte des j’aime', vu.likes === 2, String(vu.likes));
+          check('la liste dit si j’ai déjà aimé', vu.liked === true, String(vu.liked));
+        }
+
+        // Reponses : un seul niveau, toujours rattachees au message d'origine.
+        r = await admin('POST', `/api/episodes/${ep}/comments`,
+          { body: 'Merci du retour.', parentId: comAlice });
+        check('réponse publiée', r.status === 200 && r.data.comment.parent_id === comAlice,
+          JSON.stringify(r.data.comment));
+        const reponse = r.data.comment.id;
+
+        r = await alice('POST', `/api/episodes/${ep}/comments`,
+          { body: 'De rien.', parentId: reponse });
+        check('répondre à une réponse reste au même fil', r.data.comment.parent_id === comAlice,
+          String(r.data.comment.parent_id));
+
+        r = await alice('GET', `/api/episodes/${ep}/comments`);
+        check('les réponses ne sont pas des fils à part', r.data.comments.length === 2,
+          String(r.data.comments.length));
+        check('les réponses sont rangées sous leur message',
+          r.data.comments.find((c) => c.id === comAlice).replies.length === 2);
+        check('les réponses sont dans l’ordre où elles ont été écrites',
+          r.data.comments.find((c) => c.id === comAlice).replies[0].id === reponse);
+
+        {
+          const autreEp = (await admin('POST', `/api/admin/content/${serie}/episodes`,
+            { season: 3, number: 1, title: 'Ailleurs' })).data.episode.id;
+          check('on ne répond pas à un commentaire d’un autre épisode',
+            (await alice('POST', `/api/episodes/${autreEp}/comments`,
+              { body: 'perdu', parentId: comAlice })).status === 400);
+          await admin('DELETE', '/api/admin/episodes/' + autreEp);
+        }
+
+        check('la fiche compte aussi les réponses',
+          (await alice('GET', '/api/content/' + serie)).data.item.episodes
+            .find((e) => e.id === ep).commentaires === 4);
+
         check('on ne supprime pas le commentaire d’un autre',
           (await alice('DELETE', '/api/episodes/comments/' + comAdmin)).status === 403);
-        check('chacun supprime le sien',
-          (await alice('DELETE', '/api/episodes/comments/' + comAlice)).status === 200);
+
+        // Supprimer un message emporte ses reponses : aucune ne doit rester
+        // orpheline dans la liste.
+        r = await alice('DELETE', '/api/episodes/comments/' + comAlice);
+        check('chacun supprime le sien', r.status === 200);
+        check('les réponses partent avec le message supprimé', r.data.supprimes === 3,
+          String(r.data.supprimes));
+        check('plus qu’un seul commentaire',
+          (await alice('GET', `/api/episodes/${ep}/comments`)).data.comments.length === 1);
+
         check('un administrateur supprime n’importe lequel',
           (await admin('DELETE', '/api/episodes/comments/' + comAdmin)).status === 200);
         check('commentaire déjà supprimé : 404',
@@ -906,6 +968,94 @@ async function waitForServer(proc) {
         blocked > 0,
         blocked ? `bloqué après ${blocked} essais` : 'jamais bloqué en 70 essais'
       );
+    }
+
+    console.log('\n— Migration du schéma');
+    {
+      // La base de production est ancienne : elle n'a que les tables et les
+      // colonnes qui existaient le jour de son installation. Une nouveaute
+      // ajoutee au bloc de creation ne l'atteint pas, et un index pose sur une
+      // colonne encore absente fait echouer le demarrage sur place, alors que
+      // tout va bien sur une base neuve. Ce test recree cette situation.
+      const { DatabaseSync } = require('node:sqlite');
+      const vieux = fs.mkdtempSync(path.join(os.tmpdir(), 'kuroi-vieux-'));
+      try {
+        const ancienne = new DatabaseSync(path.join(vieux, 'kuroi.db'));
+        ancienne.exec(`
+          CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin')),
+            banned INTEGER NOT NULL DEFAULT 0,
+            ban_reason TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            last_login_at TEXT
+          );
+          CREATE TABLE content (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL CHECK (type IN ('film','serie','jeu')),
+            title TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+          );
+          CREATE TABLE episodes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content_id INTEGER NOT NULL REFERENCES content(id) ON DELETE CASCADE,
+            season INTEGER NOT NULL DEFAULT 1,
+            number INTEGER NOT NULL,
+            UNIQUE (content_id, season, number)
+          );
+          -- Volontairement sans parent_id, et sans table comment_likes.
+          CREATE TABLE episode_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            episode_id INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            author TEXT NOT NULL,
+            body TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+          );
+          INSERT INTO users (username, email, password_hash) VALUES ('temoin','t@x.fr','x');
+          INSERT INTO content (type, title) VALUES ('serie','Temoin');
+          INSERT INTO episodes (content_id, season, number) VALUES (1,1,1);
+          INSERT INTO episode_comments (episode_id, user_id, author, body)
+            VALUES (1, 1, 'temoin', 'message ecrit avant la migration');
+        `);
+        ancienne.close();
+
+        const sortie = require('child_process').spawnSync(
+          process.execPath,
+          ['-e', "require('./db'); console.log('DEMARRE');"],
+          {
+            cwd: path.join(__dirname, '..'),
+            env: { ...process.env, DATA_DIR: vieux },
+            encoding: 'utf8',
+          }
+        );
+        check(
+          'le schéma se met à jour sur une base déjà installée',
+          sortie.status === 0 && sortie.stdout.includes('DEMARRE'),
+          String(sortie.stderr || '').split('\n').slice(0, 3).join(' | ')
+        );
+
+        if (sortie.status === 0) {
+          const apres = new DatabaseSync(path.join(vieux, 'kuroi.db'));
+          const colonnes = apres.prepare('PRAGMA table_info(episode_comments)').all().map((c) => c.name);
+          check('la colonne des réponses est ajoutée', colonnes.includes('parent_id'),
+            colonnes.join(','));
+          check('la table des j’aime est créée',
+            apres.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='comment_likes'")
+              .all().length === 1);
+          check('l’index des réponses est créé',
+            apres.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_comments_parent'")
+              .all().length === 1);
+          check('les commentaires déjà écrits sont conservés',
+            apres.prepare('SELECT COUNT(*) AS n FROM episode_comments').get().n === 1);
+          apres.close();
+        }
+      } finally {
+        fs.rmSync(vieux, { recursive: true, force: true });
+      }
     }
 
     console.log('\n— Scripts du navigateur');

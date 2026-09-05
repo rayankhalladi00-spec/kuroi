@@ -469,15 +469,17 @@ function majBoutonSaison(saison) {
 // « .ep[data-ep] », « [data-seen] » et « .ep-seen-label » sont conserves, c'est
 // sur eux que s'appuie markSeen.
 function episodeCarte(e) {
-  const vignette = e.thumbnail_url
-    ? `style="background-image:url('${esc(e.thumbnail_url)}')"`
-    : '';
+  // A defaut d'image propre a l'episode, celle du titre : mieux vaut l'image de
+  // la serie qu'un rectangle noir. L'etat vide n'apparait que si le titre n'a
+  // aucune image non plus.
+  const image = e.thumbnail_url || item.backdrop_url || item.poster_url;
+  const vignette = image ? `style="background-image:url('${esc(image)}')"` : '';
   return `
     <article class="ep ${e.watched ? 'seen' : ''}" data-ep="${e.id}">
       <button class="ep-open" data-ep="${e.id}" type="button"
               aria-label="Lire l’épisode ${e.number}${e.title ? ' — ' + esc(e.title) : ''}">
-        <span class="ep-vignette" ${vignette}>
-          ${e.thumbnail_url ? '' : `<span class="ep-vide">${icon(e.video_url ? 'play' : 'inbox')}</span>`}
+        <span class="ep-vignette ${image ? '' : 'vide'}" ${vignette}>
+          ${image ? '' : `<span class="ep-vide">${icon(e.video_url ? 'play' : 'inbox')}</span>`}
           <span class="ep-play">${icon(e.video_url ? 'play' : 'inbox')}</span>
           ${e.watched ? `<span class="ep-vu">${icon('check')}</span>` : ''}
         </span>

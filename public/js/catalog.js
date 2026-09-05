@@ -84,43 +84,80 @@ function resumeRow(items) {
     </section>`;
 }
 
-function row(title, items) {
+function row(title, items, options = {}) {
   if (!items.length) return '';
+  const titre = options.href
+    ? `<a href="${esc(options.href)}">${esc(title)}</a>`
+    : esc(title);
   return `
     <section class="row">
       <div class="row-head">
-        <h2>${esc(title)}</h2>
+        <h2>${titre}</h2>
         <span class="row-count">${items.length}</span>
       </div>
+      ${options.sub ? `<p class="row-sub">${esc(options.sub)}</p>` : ''}
       <div class="row-scroll stagger">${items.map(card).join('')}</div>
     </section>`;
 }
 
-// Une diapositive du carrousel. L'image large est preferee a l'affiche : une
-// affiche est en portrait, etiree en banniere elle devient illisible.
-function heroSlide(item, index) {
-  const image = item.backdrop_url || item.poster_url;
-  const bg = image ? `background-image:url('${esc(image)}')` : '';
+// Bandeau de vignettes du carrousel : il sert de navigation, et il est rendu
+// dans chaque diapositive. Une seule est visible a la fois, donc dupliquer le
+// bandeau evite d'avoir a le repositionner par-dessus les diapositives.
+function heroVignettes(tous, courant) {
   return `
-    <article class="hero-slide ${image ? '' : 'no-poster'} ${index === 0 ? 'on' : ''}"
+    <div class="hero-vignettes">
+      ${tous
+        .map((it, i) => {
+          const img = it.poster_url || it.backdrop_url;
+          return `<button class="hero-vignette ${i === courant ? 'on' : ''}"
+                          data-goto-slide="${i}" type="button"
+                          aria-label="Voir ${esc(it.title)}"
+                          ${img ? `style="background-image:url('${esc(img)}')"` : ''}></button>`;
+        })
+        .join('')}
+    </div>`;
+}
+
+// Une diapositive du carrousel. L'image large sert de fond : une affiche est en
+// portrait, etiree en banniere elle devient illisible. L'affiche, elle, garde
+// ses proportions dans la carte de gauche.
+function heroSlide(item, index, tous) {
+  const fond = item.backdrop_url || item.poster_url;
+  const bg = fond ? `background-image:url('${esc(fond)}')` : '';
+  const affiche = item.poster_url || item.backdrop_url;
+  const total = String(tous.length).padStart(2, '0');
+  return `
+    <article class="hero-slide ${fond ? '' : 'no-poster'} ${index === 0 ? 'on' : ''}"
              style="${bg}" data-slide="${index}" ${index === 0 ? '' : 'aria-hidden="true"'}>
-      <div class="hero-inner">
-        <div class="hero-meta">
-          ${icon(TYPE_ICON[item.type])}
-          <span>${esc(SINGULAR[item.type])}${item.year ? ' · ' + esc(item.year) : ''}${
-            item.genre ? ' · ' + esc(item.genre) : ''
-          }</span>
-        </div>
-        <h1>${esc(item.title)}</h1>
-        <p>${esc(item.description || '')}</p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="/${pageFor(item)}?id=${item.id}">
-            ${icon(item.type === 'jeu' ? 'download' : 'play')}
-            ${item.type === 'jeu' ? 'Télécharger' : 'Regarder'}
-          </a>
-          <button class="btn" data-fav="${item.id}" type="button" aria-pressed="${item.favorite}">
-            ${icon('heart')} ${item.favorite ? 'Dans ma liste' : 'Ma liste'}
-          </button>
+      <div class="hero-body">
+        ${
+          affiche
+            ? `<div class="hero-affiche" style="background-image:url('${esc(affiche)}')"></div>`
+            : ''
+        }
+        <div class="hero-inner">
+          ${
+            tous.length > 1
+              ? `<div class="hero-compteur">${String(index + 1).padStart(2, '0')} / ${total}</div>`
+              : ''
+          }
+          <h1>${esc(item.title)}</h1>
+          <div>
+            <span class="hero-badge">${esc(SINGULAR[item.type])}${
+              item.genre ? ' · ' + esc(item.genre) : ''
+            }</span>
+          </div>
+          <p>${esc(item.description || '')}</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="/${pageFor(item)}?id=${item.id}">
+              ${icon(item.type === 'jeu' ? 'download' : 'play')}
+              ${item.type === 'jeu' ? 'Télécharger' : 'Regarder'}
+            </a>
+            <button class="btn" data-fav="${item.id}" type="button" aria-pressed="${item.favorite}">
+              ${icon('heart')} ${item.favorite ? 'Dans ma liste' : 'Ma liste'}
+            </button>
+          </div>
+          ${tous.length > 1 ? heroVignettes(tous, index) : ''}
         </div>
       </div>
     </article>`;
@@ -129,24 +166,15 @@ function heroSlide(item, index) {
 function hero(items) {
   const liste = (items || []).filter(Boolean);
   if (!liste.length) return '';
-  if (liste.length === 1) return `<div class="hero">${heroSlide(liste[0], 0)}</div>`;
-
-  const pastilles = liste
-    .map(
-      (it, i) =>
-        `<button class="hero-dot ${i === 0 ? 'on' : ''}" data-goto-slide="${i}" type="button"
-                 aria-label="Aller au titre ${i + 1} : ${esc(it.title)}"></button>`
-    )
-    .join('');
+  if (liste.length === 1) return `<div class="hero">${heroSlide(liste[0], 0, liste)}</div>`;
 
   return `
     <div class="hero" id="heroCarrousel">
-      ${liste.map(heroSlide).join('')}
+      ${liste.map((it, i) => heroSlide(it, i, liste)).join('')}
       <button class="hero-arrow prev" data-slide-move="-1" type="button"
               aria-label="Titre précédent">${icon('back')}</button>
       <button class="hero-arrow next" data-slide-move="1" type="button"
               aria-label="Titre suivant">${icon('back')}</button>
-      <div class="hero-dots">${pastilles}</div>
     </div>`;
 }
 
@@ -160,7 +188,6 @@ function wireHero() {
   if (!box) return;
 
   const slides = [...box.querySelectorAll('.hero-slide')];
-  const dots = [...box.querySelectorAll('[data-goto-slide]')];
   let actuel = 0;
 
   const montrer = (i) => {
@@ -170,7 +197,6 @@ function wireHero() {
       if (n === actuel) el.removeAttribute('aria-hidden');
       else el.setAttribute('aria-hidden', 'true');
     });
-    dots.forEach((d, n) => d.classList.toggle('on', n === actuel));
   };
 
   const sobre = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -201,37 +227,20 @@ function wireHero() {
   relancer();
 }
 
-// Barre des genres. Elle ne liste que les genres reellement presents, avec leur
-// nombre de titres, et le genre choisi vit dans l'adresse : la page reste
-// partageable et le bouton retour fonctionne.
-function genreBar(genres, actif) {
-  if (!genres || genres.length < 2) return '';
-  const lien = (g) => {
-    const params = new URLSearchParams(location.search);
-    if (g) params.set('g', g);
-    else params.delete('g');
-    params.delete('q');
-    const qs = params.toString();
-    return '/' + (qs ? '?' + qs : '');
-  };
-  return `
-    <div class="genre-bar" id="genreBar">
-      <a class="chip ${actif ? '' : 'on'}" href="${lien(null)}">Tous</a>
-      ${genres
-        .map(
-          (g) => `<a class="chip ${actif === g.nom ? 'on' : ''}" href="${lien(g.nom)}">
-                    ${esc(g.nom)}<span class="chip-count">${g.total}</span>
-                  </a>`
-        )
-        .join('')}
-    </div>`;
+// Une rangee par genre, empilees les unes sous les autres : on descend dans la
+// page et on tombe sur Action, Romance, et le reste. Le titre de la rangee mene
+// au genre complet.
+function genreRows(genres, tous) {
+  return (genres || [])
+    .map((g) =>
+      row(
+        g.nom,
+        tous.filter((i) => i.genre === g.nom),
+        { href: '/?g=' + encodeURIComponent(g.nom) }
+      )
+    )
+    .join('');
 }
-
-function skeletons(n = 7) {
-  return `<div class="row"><div class="row-scroll">${'<div class="skeleton skeleton-card"></div>'.repeat(n)}</div></div>`;
-}
-
-/* -------------------------------- assemblage ------------------------------- */
 
 // Genre demande dans l'adresse, s'il y en a un.
 const genreActif = () => new URLSearchParams(location.search).get('g');
@@ -262,16 +271,18 @@ function render(user) {
 
   const genre = genreActif();
 
+  const accueilComplet = !filter && !query && !genre;
+  const tous = [...data.films, ...data.series, ...data.jeux];
+
   let body;
   if (total) {
     body =
-      genreBar(data.genres, genre) +
-      (!filter && !query && !genre ? resumeRow(data.reprendre || []) : '') +
-      (!filter && !query && !genre ? row('Ma liste', favoris) : '') +
-      groups.map(([type, items]) => row(LABELS[type], items)).join('');
+      (accueilComplet ? resumeRow(data.reprendre || []) : '') +
+      (accueilComplet ? row('Ma liste', favoris) : '') +
+      groups.map(([type, items]) => row(LABELS[type], items)).join('') +
+      (accueilComplet ? genreRows(data.genres, tous) : '');
   } else if (genre) {
     body =
-      genreBar(data.genres, genre) +
       `<div class="empty">
         ${icon('inbox', { cls: 'icon-lg' })}
         <h2>Rien en « ${esc(genre)} » pour l’instant</h2>

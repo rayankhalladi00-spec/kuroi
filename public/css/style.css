@@ -19,10 +19,10 @@
   --text-muted:    #9b9baa;
   --text-faint:    #6c6c7c;
 
-  --accent:        #f97316;
-  --accent-hover:  #ff9040;
-  --accent-soft:   rgba(249, 115, 22, .15);
-  --on-accent:     #1a0d02;
+  --accent:        #e50914;
+  --accent-hover:  #ff2b36;
+  --accent-soft:   rgba(229, 9, 20, .14);
+  --on-accent:     #ffffff;
 
   --ok:            #3ddc84;
   --ok-soft:       rgba(61, 220, 132, .13);
@@ -59,9 +59,9 @@
   --text-muted:    #5a5a68;
   --text-faint:    #74748a;
 
-  --accent:        #c2560c;
-  --accent-hover:  #9c4409;
-  --accent-soft:   rgba(194, 86, 12, .10);
+  --accent:        #c40812;
+  --accent-hover:  #a3060f;
+  --accent-soft:   rgba(196, 8, 18, .09);
 
   --ok:            #10814a;
   --ok-soft:       rgba(16, 129, 74, .1);
@@ -69,7 +69,6 @@
   --warn-soft:     rgba(138, 90, 0, .1);
   --danger:        #b3121b;
   --danger-soft:   rgba(179, 18, 27, .09);
-  --on-accent:     #ffffff;
 
   --shadow:        0 10px 40px rgba(20, 20, 30, .13);
   --shadow-soft:   0 2px 10px rgba(20, 20, 30, .08);
@@ -339,15 +338,27 @@ h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; }
 
 /* --------------------------------- rangées --------------------------------- */
 
-.row { padding: 0 4vw; margin-bottom: 44px; }
-.row-head { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
-.row-head h2 { font-size: 21px; margin: 0; font-weight: 700; }
+.row { padding: 0 4vw; margin-bottom: 52px; }
+.row-head { display: flex; align-items: center; gap: 11px; margin-bottom: 4px; }
+.row-head h2 { font-size: 23px; margin: 0; font-weight: 700; }
+.row-head h2 a { color: inherit; text-decoration: none; }
+.row-head h2 a:hover { color: var(--accent); }
 .row-count { color: var(--text-faint); font-size: 13px; font-weight: 500; }
+
+/* Barre verticale d'accent devant le titre de chaque rangee. */
+.row-head::before {
+  content: '';
+  flex: none;
+  width: 4px; height: 21px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.row-sub { color: var(--text-muted); font-size: 14px; margin: 0 0 16px; }
 
 .row-scroll {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 176px;
+  grid-auto-columns: 230px;
   gap: 14px;
   overflow-x: auto;
   padding: 4px 4px 16px;
@@ -910,7 +921,7 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .nav-links::-webkit-scrollbar { display: none; }
   .nav-links a { white-space: nowrap; padding: 6px 10px; }
   .hero { min-height: 54vh; padding-top: 110px; }
-  .row-scroll { grid-auto-columns: 138px; }
+  .row-scroll { grid-auto-columns: 160px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 13px; }
   .auth-card { padding: 30px 22px; }
   .idea { flex-direction: column; }
@@ -1607,31 +1618,6 @@ span.com-avatar {
 /* La même icône sert aux deux sens : la flèche « suivant » est retournée. */
 .hero-arrow.next svg { transform: scaleX(-1); }
 
-.hero-dots {
-  position: absolute;
-  bottom: 20px; left: 4vw;
-  z-index: 2;
-  display: flex; gap: 8px;
-}
-.hero-dot {
-  width: 26px; height: 4px;
-  padding: 0;
-  border: 0; border-radius: 99px;
-  background: color-mix(in srgb, var(--text) 28%, transparent);
-  cursor: pointer;
-  transition: background var(--fast) var(--ease), width var(--fast) var(--ease);
-}
-.hero-dot:hover { background: color-mix(in srgb, var(--text) 50%, transparent); }
-.hero-dot.on { background: var(--accent); width: 40px; }
-
-/* Barre des genres, sous le héros. */
-.genre-bar {
-  display: flex; flex-wrap: wrap; gap: 8px;
-  padding: 0 4vw;
-  margin: 0 0 34px;
-}
-.genre-bar .chip { text-decoration: none; }
-
 /* Carte « Reprendre » : format paysage, c'est l'image de l'épisode. */
 .card.resume { width: 300px; }
 .resume-img {
@@ -1696,6 +1682,15 @@ span.com-avatar {
 .ep-grid .ep.on .ep-vignette { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .ep-grid .ep.seen .ep-vignette { opacity: .55; }
 
+/* Sans image, la vignette serait un rectangle presque noir. Une lueur et une
+   trame valent mieux qu'un trou : on voit qu'il manque l'image, pas que le
+   lecteur est casse. */
+.ep-vignette.vide {
+  background-image:
+    radial-gradient(150% 100% at 50% 0%, var(--accent-soft), transparent 62%),
+    repeating-linear-gradient(115deg, transparent 0 14px,
+      color-mix(in srgb, var(--text) 3%, transparent) 14px 15px);
+}
 .ep-vide { color: var(--text-faint); }
 
 /* Le bouton de lecture n'apparait qu'au survol, pour ne pas masquer l'image. */
@@ -1750,4 +1745,89 @@ span.com-avatar {
   .ep-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px 12px; }
   .card.resume { width: 240px; }
   .hero-arrow { display: none; }
+}
+
+/* ============================ héros, mise en page ========================== */
+
+/* Affiche à gauche, texte à droite, bandeau de vignettes dessous. */
+.hero-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 36px;
+  width: 100%;
+}
+
+.hero-affiche {
+  flex: none;
+  width: 200px;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-card) center / cover no-repeat;
+  box-shadow: var(--shadow);
+}
+
+/* Compteur « 01 / 06 », précédé d'un tiret comme repère visuel. */
+.hero-compteur {
+  display: flex; align-items: center; gap: 12px;
+  color: var(--text-muted);
+  font-size: 13px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .12em;
+  margin-bottom: 14px;
+}
+.hero-compteur::before {
+  content: '';
+  width: 34px; height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.hero-badge {
+  display: inline-block;
+  padding: 4px 11px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  color: var(--text-muted);
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .11em;
+}
+
+/* Bandeau de vignettes : il sert de navigation dans le carrousel. */
+.hero-vignettes {
+  display: flex; gap: 10px;
+  margin-top: 26px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.hero-vignettes::-webkit-scrollbar { display: none; }
+
+.hero-vignette {
+  flex: none;
+  width: 58px;
+  aspect-ratio: 2 / 3;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 9px;
+  background: var(--bg-card) center / cover no-repeat;
+  cursor: pointer;
+  opacity: .5;
+  transition: opacity var(--fast) var(--ease), border-color var(--fast) var(--ease),
+              transform var(--fast) var(--ease);
+}
+.hero-vignette:hover { opacity: .85; transform: translateY(-2px); }
+.hero-vignette.on { opacity: 1; border-color: var(--accent); }
+
+@media (max-width: 900px) {
+  .hero-affiche { display: none; }
+  .hero-body { gap: 0; }
+}
+@media (max-width: 560px) {
+  .hero-vignette { width: 46px; }
+  .hero-compteur { margin-bottom: 10px; }
 }

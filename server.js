@@ -7,7 +7,7 @@ const session = require('express-session');
 const SqliteSessionStore = require('./session-store');
 const { embedHosts, embedHostsVersion } = require('./lib/embed');
 
-const { loadUser, requireAdmin } = require('./middleware/auth');
+const { loadUser, requireAuth, requireAdmin } = require('./middleware/auth');
 const ensureAdmin = require('./scripts/ensure-admin');
 
 const app = express();
@@ -160,6 +160,17 @@ app.get('/api/health', (req, res) =>
 app.get('/api/avatars/:file', (req, res) => {
   const nom = path.basename(req.params.file); // jamais de chemin remontant
   res.sendFile(path.join(require('./lib/avatars').DIR_ENVOYEES, nom), (err) => {
+    if (err && !res.headersSent) res.status(404).end();
+  });
+});
+
+// Images d'episode envoyees depuis l'administration, comme les photos de
+// profil : hors de l'arborescence statique, servies une par une.
+// requireAuth : le catalogue est prive, et une affiche est deja protegee de la
+// meme facon. Sans lui, l'adresse d'une image suffirait a la voir sans compte.
+app.get('/api/episode-images/:file', requireAuth, (req, res) => {
+  const nom = path.basename(req.params.file); // jamais de chemin remontant
+  res.sendFile(path.join(require('./lib/uploads').EPISODE_DIR, nom), (err) => {
     if (err && !res.headersSent) res.status(404).end();
   });
 });

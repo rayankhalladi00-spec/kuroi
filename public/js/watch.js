@@ -17,6 +17,7 @@ let similar = [];
 let current = null; // épisode en cours, null pour un film
 let chrono = null;
 let indexSource = 0; // lecteur choisi pour l'episode en cours
+let sensEpisodes = 1; // 1 : du premier au dernier ; -1 : l'inverse
 
 /* --------------------------------- lecteur --------------------------------- */
 
@@ -499,6 +500,19 @@ function episodeCarte(e) {
     </article>`;
 }
 
+// Une saison dans la liste deroulante : son numero, et ou en est le membre.
+function optionSaison(s, eps, choisie) {
+  const vus = eps.filter((e) => e.watched).length;
+  return `<option value="${s}" ${s === choisie ? 'selected' : ''}>
+            Saison ${s} — ${eps.length} épisode${eps.length > 1 ? 's' : ''} (${vus} vu${vus > 1 ? 's' : ''})
+          </option>`;
+}
+
+// Les episodes d'une saison, dans l'ordre demande.
+function episodesTries(eps) {
+  return sensEpisodes === 1 ? eps : [...eps].reverse();
+}
+
 function episodesHtml() {
   if (item.type !== 'serie') return '';
   const list = seasons();
@@ -510,16 +524,22 @@ function episodesHtml() {
     </section>`;
   }
 
-  const tabs = `<div class="filters" id="seasonTabs">
-    ${list
-      .map(([s, eps], i) => {
-        const vus = eps.filter((e) => e.watched).length;
-        return `<button class="chip ${i === 0 ? 'on' : ''}" data-season="${s}" type="button">
-                  Saison ${s}<span class="chip-count">${vus}/${eps.length}</span>
-                </button>`;
-      })
-      .join('')}
-  </div>`;
+  const premiere = list[0][0];
+
+  // Une liste deroulante plutot que des onglets : au-dela de quelques saisons,
+  // les onglets debordent et on ne voit plus ou l'on en est.
+  const outils = `
+    <div class="ep-outils">
+      <div class="ep-select-wrap">
+        <select id="seasonSelect" aria-label="Choisir la saison">
+          ${list.map(([s, eps]) => optionSaison(s, eps, premiere)).join('')}
+        </select>
+        ${icon('chevron')}
+      </div>
+      <button class="icon-btn" id="epSens" type="button"
+              aria-label="Inverser l’ordre des épisodes"
+              title="Du premier au dernier">${icon('tri')}</button>
+    </div>`;
 
   const panels = list
     .map(
@@ -529,18 +549,31 @@ function episodesHtml() {
           <span class="hint">${eps.filter((e) => e.watched).length} épisode(s) vu(s) sur ${eps.length}</span>
           ${boutonSaison(s, eps)}
         </div>
-        <div class="ep-grid">
-        ${eps.map(episodeCarte).join('')}
-        </div>
+        <div class="ep-grid">${episodesTries(eps).map(episodeCarte).join('')}</div>
       </div>`
     )
     .join('');
 
   return `<section class="section">
-    <h2>Épisodes <span class="row-count">${item.episodeCount}</span></h2>
-    ${tabs}
+    <div class="ep-tete">
+      <h2>Épisodes <span class="row-count">${item.episodeCount}</span></h2>
+      ${outils}
+    </div>
     ${panels}
   </section>`;
+}
+
+// Reconstruit les grilles apres un changement de sens. On ne refait que les
+// cartes : le lecteur et le formulaire de commentaire restent en place.
+function redessinerEpisodes() {
+  for (const [s, eps] of seasons()) {
+    const grille = document.querySelector(`.season[data-season="${s}"] .ep-grid`);
+    if (grille) grille.innerHTML = episodesTries(eps).map(episodeCarte).join('');
+  }
+  document.querySelectorAll('.ep').forEach((el) => {
+    el.classList.toggle('on', current && Number(el.dataset.ep) === current.id);
+  });
+  brancherEpisodes();
 }
 
 function infoHtml() {
@@ -596,9 +629,13 @@ function markSeen(episodeId, seen, majBarre = true) {
       if (l) l.textContent = seen ? 'Vu' : 'Non vu';
     }
   }
-  for (const [saison, eps] of seasons()) {
-    const chip = document.querySelector(`#seasonTabs [data-season="${saison}"] .chip-count`);
-    if (chip) chip.textContent = `${eps.filter((e) => e.watched).length}/${eps.length}`;
+  const choix = document.getElementById('seasonSelect');
+  if (choix) {
+    const courante = choix.value;
+    choix.innerHTML = seasons()
+      .map(([saison, eps]) => optionSaison(saison, eps, Number(courante)))
+      .join('');
+    choix.value = courante;
   }
   if (current && current.id === episodeId) majBouton(current);
 
@@ -615,19 +652,23 @@ function play(ep) {
   document.getElementById('playerBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-function wirePage() {
+// Affiche une saison et masque les autres.
+function montrerSaison(saison) {
+  document.querySelectorAll('.season').forEach((p) => {
+    p.hidden = p.dataset.season !== String(saison);
+  });
+  const choix = document.getElementById('seasonSelect');
+  if (choix && choix.value !== String(saison)) choix.value = String(saison);
+}
+
+// Ecouteurs des cartes d'episode. Reposes apres chaque redessin, car les
+// cartes sont recreees.
+function brancherEpisodes() {
   const findEp = (id) => (item.episodes || []).find((x) => x.id === Number(id));
 
-  document.getElementById('seasonTabs')?.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-season]');
-    if (!b) return;
-    document.querySelectorAll('#seasonTabs .chip').forEach((c) => c.classList.toggle('on', c === b));
-    document.querySelectorAll('.season').forEach((p) => {
-      p.hidden = p.dataset.season !== b.dataset.season;
-    });
-  });
-
   document.querySelectorAll('.ep-open').forEach((el) => {
+    if (el.dataset.branche) return;
+    el.dataset.branche = '1';
     el.addEventListener('click', () => {
       const ep = findEp(el.dataset.ep);
       if (ep) play(ep);
@@ -635,6 +676,8 @@ function wirePage() {
   });
 
   document.querySelectorAll('[data-seen]').forEach((el) => {
+    if (el.dataset.branche) return;
+    el.dataset.branche = '1';
     el.addEventListener('click', async (e) => {
       e.stopPropagation();
       const ep = findEp(el.dataset.seen);
@@ -644,6 +687,24 @@ function wirePage() {
       el.disabled = false;
     });
   });
+}
+
+function wirePage() {
+  const findEp = (id) => (item.episodes || []).find((x) => x.id === Number(id));
+
+  document.getElementById('seasonSelect')?.addEventListener('change', (e) => {
+    montrerSaison(e.target.value);
+  });
+
+  document.getElementById('epSens')?.addEventListener('click', (b) => {
+    sensEpisodes = -sensEpisodes;
+    const bouton = document.getElementById('epSens');
+    bouton.classList.toggle('on', sensEpisodes === -1);
+    bouton.title = sensEpisodes === 1 ? 'Du premier au dernier' : 'Du dernier au premier';
+    redessinerEpisodes();
+  });
+
+  brancherEpisodes();
 
   // Délégation : la barre de saison est reconstruite à chaque changement, un
   // écouteur posé sur le bouton lui-même disparaîtrait avec lui.
@@ -685,8 +746,7 @@ function wirePage() {
       const ep = findEp(aller.dataset.goto);
       if (!ep) return;
       play(ep);
-      const tab = document.querySelector(`#seasonTabs [data-season="${ep.season}"]`);
-      if (tab && !tab.classList.contains('on')) tab.click();
+      montrerSaison(ep.season);
       return;
     }
 

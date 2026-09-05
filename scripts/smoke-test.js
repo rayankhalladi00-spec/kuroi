@@ -1012,6 +1012,51 @@ async function waitForServer(proc) {
       check('modifier un épisode ne perd pas son image',
         relu.thumbnail_url === 'https://exemple.test/e1.jpg', String(relu.thumbnail_url));
 
+      // Envoi d'une photo depuis l'administration. Elle vit dans data/, comme
+      // les photos de profil : la table files n'accepte que 'attachment' et
+      // 'poster', et SQLite ne sait pas assouplir une contrainte apres coup.
+      {
+        const envoyer = async (client, id, nom, buf) => {
+          const form = new FormData();
+          form.append('file', new Blob([buf]), nom);
+          return client('POST', `/api/admin/episodes/${id}/thumbnail`, form);
+        };
+        const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+        const dossier = path.join(DATA_DIR, 'episodes');
+        const combien = () => (fs.existsSync(dossier) ? fs.readdirSync(dossier).length : 0);
+
+        let rp = await envoyer(admin, ep1.id, 'capture.png', png);
+        check('envoi d’une photo d’épisode',
+          rp.status === 200 && rp.data.thumbnail_url.startsWith('/api/episode-images/'),
+          JSON.stringify(rp.data));
+        const premiere = rp.data.thumbnail_url;
+        check('la photo est bien sur le disque', combien() === 1, String(combien()));
+
+        check('la fiche sert la photo envoyée',
+          (await alice('GET', '/api/content/' + serie)).data.item.episodes
+            .find((e) => e.id === ep1.id).thumbnail_url === premiere);
+
+        // Remplacer ne doit pas laisser l'ancienne trainer : avec des milliers
+        // d'episodes, les orphelines rempliraient le disque.
+        rp = await envoyer(admin, ep1.id, 'autre.png', png);
+        check('remplacer donne une nouvelle adresse',
+          rp.data.thumbnail_url !== premiere, rp.data.thumbnail_url);
+        check('l’ancienne photo est effacée du disque', combien() === 1, String(combien()));
+
+        check('un fichier qui n’est pas une image est refusé',
+          (await envoyer(admin, ep1.id, 'faux.png', Buffer.from('pas une image'))).status === 400);
+        check('photo refusée sur un épisode inexistant',
+          (await envoyer(admin, 999999, 'x.png', png)).status === 404);
+        check('un membre ordinaire ne peut pas envoyer de photo',
+          (await envoyer(alice, ep1.id, 'x.png', png)).status === 403);
+
+        // L'image doit etre servie, et seulement aux membres connectes.
+        const adresse = rp.data.thumbnail_url;
+        check('la photo est servie', (await alice('GET', adresse)).status === 200);
+        check('la photo n’est pas publique',
+          (await client()('GET', adresse)).status === 401, adresse);
+      }
+
       // La reprise doit porter l'image : c'est tout l'interet de la carte.
       await alice('POST', `/api/content/${serie}/watched`, { episodeId: ep1.id, watched: true });
       cat = (await alice('GET', '/api/content')).data;

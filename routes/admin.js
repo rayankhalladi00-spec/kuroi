@@ -10,6 +10,9 @@ const avatarsLib = require('../lib/avatars');
 const {
   upload,
   uploadImage,
+  uploadEpisodeImage,
+  EPISODE_DIR,
+  MAX_EPISODE_SIZE,
   uploadAvatar,
   AVATAR_DIR,
   MAX_AVATAR_SIZE,
@@ -620,6 +623,47 @@ router.post('/content/:id/poster', (req, res) => {
 
     audit(req.user, 'set_poster', `content#${content.id}`, `${req.file.originalname} (${content.title})`);
     res.json({ ok: true, poster_url: url, file: db.prepare('SELECT * FROM files WHERE id = ?').get(id) });
+  });
+});
+
+// Photo d'un episode : une seule, la precedente est effacee du disque.
+router.post('/episodes/:id/thumbnail', (req, res) => {
+  const ep = db
+    .prepare(
+      `SELECT e.id, e.season, e.number, e.thumbnail_url, c.title
+       FROM episodes e JOIN content c ON c.id = e.content_id WHERE e.id = ?`
+    )
+    .get(req.params.id);
+  if (!ep) return res.status(404).json({ error: 'Épisode introuvable' });
+
+  uploadEpisodeImage.single('file')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: uploadError(err, MAX_EPISODE_SIZE) });
+    if (!req.file) return res.status(400).json({ error: 'Aucune image reçue.' });
+
+    // L'extension ne prouve rien : on verifie la signature du fichier.
+    if (!sniffImage(req.file.path)) {
+      fsp.unlinkSync(req.file.path);
+      return res.status(400).json({ error: "Ce fichier n'est pas une image valide." });
+    }
+
+    // Remplacer laisse un fichier orphelin sur le disque si on ne l'efface pas.
+    // Avec des milliers d'episodes, cela s'accumulerait vite.
+    const ancienne = ep.thumbnail_url || '';
+    if (ancienne.startsWith('/api/episode-images/')) {
+      const nom = path.basename(ancienne);
+      try {
+        fsp.unlinkSync(path.join(EPISODE_DIR, nom));
+      } catch {
+        /* deja absente : rien a faire */
+      }
+    }
+
+    const url = `/api/episode-images/${req.file.filename}`;
+    db.prepare('UPDATE episodes SET thumbnail_url = ? WHERE id = ?').run(url, ep.id);
+
+    audit(req.user, 'set_episode_image', `episode#${ep.id}`,
+      `${ep.title} S${ep.season}E${ep.number}`);
+    res.json({ ok: true, thumbnail_url: url });
   });
 });
 

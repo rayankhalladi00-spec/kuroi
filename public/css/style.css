@@ -1683,11 +1683,60 @@ span.com-avatar {
 }
 
 /* Grille des épisodes : l'image d'abord, le titre dessous. */
+/* Six par ligne sur ordinateur, comme demande. En dessous on reduit le nombre
+   de colonnes plutot que la taille des cartes, qui deviendraient illisibles. */
 .ep-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 20px 18px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 24px 18px;
 }
+@media (max-width: 1250px) { .ep-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 900px)  { .ep-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px)  { .ep-grid { grid-template-columns: repeat(2, 1fr); gap: 16px 12px; } }
+
+/* Titre des episodes, puis les outils a droite. */
+.ep-tete {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.ep-tete h2 { margin: 0; }
+
+.ep-outils { display: flex; align-items: center; gap: 10px; }
+
+/* La fleche est dessinee par-dessus : le chevron natif differe d'un
+   navigateur a l'autre et jure avec le reste. */
+.ep-select-wrap { position: relative; display: flex; align-items: center; }
+.ep-select-wrap select {
+  appearance: none;
+  min-width: 220px;
+  padding: 10px 40px 10px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ep-select-wrap select:hover { border-color: var(--line-strong); }
+.ep-select-wrap select:focus { outline: none; border-color: var(--accent); }
+.ep-select-wrap svg {
+  position: absolute; right: 13px;
+  pointer-events: none;
+  color: var(--text-muted);
+  width: 17px; height: 17px;
+}
+
+#epSens {
+  width: 42px; height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+}
+#epSens:hover { border-color: var(--line-strong); }
+#epSens.on { border-color: var(--accent); color: var(--accent); }
 
 /* La carte remplace l'ancienne ligne : les règles de liste ne s'appliquent
    plus, on repart d'une colonne image + légende. */
@@ -1784,7 +1833,6 @@ span.com-avatar {
 .ep-grid .ep-seen svg { width: 14px; height: 14px; }
 
 @media (max-width: 560px) {
-  .ep-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px 12px; }
   .card.resume { width: 240px; }
   .hero-arrow { display: none; }
 }
@@ -1872,4 +1920,16 @@ span.com-avatar {
 @media (max-width: 560px) {
   .hero-vignette { width: 46px; }
   .hero-compteur { margin-bottom: 10px; }
+}
+
+/* Aperçu de l'image d'un épisode, dans l'éditeur d'administration. */
+.ep-apercu {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  margin-bottom: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-media);
 }

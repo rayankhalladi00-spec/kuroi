@@ -549,12 +549,19 @@ async function manageEpisodes(contentId) {
       <textarea id="edSynopsis-${e.id}" rows="2" maxlength="800">${esc(e.synopsis || '')}</textarea>
     </div>
     <div class="field">
-      <label for="edVignette-${e.id}">Image de l'épisode</label>
+      <label>Image de l'épisode</label>
+      ${
+        e.thumbnail_url
+          ? `<img class="ep-apercu" src="${esc(e.thumbnail_url)}" alt="" loading="lazy">`
+          : '<p class="hint">Aucune image pour cet épisode.</p>'
+      }
+      <input type="file" id="edFichier-${e.id}" accept=".png,.jpg,.jpeg,.webp,.avif,.gif">
+      <small class="hint">
+        Choisis une photo (3 Mo maximum) — elle part à l'enregistrement. Ou colle une
+        adresse ci-dessous. Elle illustre la reprise sur l'accueil et la grille des épisodes.
+      </small>
       <input id="edVignette-${e.id}" type="url" value="${esc(e.thumbnail_url || '')}"
              placeholder="https://… (format large, 16/9)">
-      <small class="hint">
-        Elle illustre la reprise de lecture sur l'accueil et la grille des épisodes.
-      </small>
     </div>
     <div style="display:flex;gap:9px">
       <button class="btn btn-primary btn-sm" data-saveep="${e.id}" type="button">Enregistrer</button>
@@ -691,6 +698,20 @@ async function manageEpisodes(contentId) {
             sources: document.getElementById('edSources-' + id).value,
           },
         });
+        // La photo part apres l'enregistrement : elle a le dernier mot sur
+        // l'adresse saisie a la main, et le serveur renvoie son adresse finale.
+        const champFichier = document.getElementById('edFichier-' + id);
+        const photo = champFichier?.files?.[0];
+        if (photo) {
+          const envoi = new FormData();
+          envoi.append('file', photo);
+          const rp = await api(`/api/admin/episodes/${id}/thumbnail`, {
+            method: 'POST',
+            body: envoi,
+          });
+          r.episode.thumbnail_url = rp.thumbnail_url;
+        }
+
         const i = episodes.findIndex((e) => e.id === Number(id));
         if (i >= 0) episodes[i] = { ...r.episode, sources: r.sources || [] };
 

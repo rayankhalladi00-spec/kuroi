@@ -177,6 +177,8 @@ const CONTENT_FIELDS = [
   'title',
   'description',
   'poster_url',
+  // Image en paysage pour le carrousel de l'accueil.
+  'backdrop_url',
   'video_url',
   'external_url',
   'year',
@@ -306,13 +308,16 @@ router.delete('/content/:id', (req, res) => {
 
 /* --------------------------------- épisodes -------------------------------- */
 
-const EPISODE_COLS = 'id, content_id, season, number, title, synopsis, video_url';
+const EPISODE_COLS =
+  'id, content_id, season, number, title, synopsis, thumbnail_url, video_url';
 
 function readEpisode(body, existing = {}) {
   const season = Number(body.season ?? existing.season ?? 1);
   const number = Number(body.number ?? existing.number);
   const title = (body.title ?? existing.title ?? '').toString().trim() || null;
   const synopsis = (body.synopsis ?? existing.synopsis ?? '').toString().trim().slice(0, 800) || null;
+  const vignette =
+    (body.thumbnail_url ?? existing.thumbnail_url ?? '').toString().trim() || null;
   let video = (body.video_url ?? existing.video_url ?? '').toString().trim() || null;
 
   if (!Number.isInteger(season) || season < 1 || season > 99)
@@ -326,7 +331,10 @@ function readEpisode(body, existing = {}) {
     video = r.url;
     if (r.upgraded) notice = 'Le lecteur était en http : passé en https.';
   }
-  return { episode: { season, number, title, synopsis, video_url: video }, notice };
+  return {
+    episode: { season, number, title, synopsis, thumbnail_url: vignette, video_url: video },
+    notice,
+  };
 }
 
 router.get('/content/:id/episodes', (req, res) => {
@@ -367,8 +375,8 @@ router.post('/content/:id/episodes', (req, res) => {
 
   const info = db
     .prepare(
-      `INSERT INTO episodes (content_id, season, number, title, synopsis, video_url)
-       VALUES (@content_id, @season, @number, @title, @synopsis, @video_url)`
+      `INSERT INTO episodes (content_id, season, number, title, synopsis, thumbnail_url, video_url)
+       VALUES (@content_id, @season, @number, @title, @synopsis, @thumbnail_url, @video_url)`
     )
     .run({ ...parsed.episode, content_id: content.id });
 
@@ -404,7 +412,8 @@ router.put('/episodes/:id', (req, res) => {
 
   db.prepare(
     `UPDATE episodes SET season = @season, number = @number, title = @title,
-            synopsis = @synopsis, video_url = @video_url WHERE id = @id`
+            synopsis = @synopsis, thumbnail_url = @thumbnail_url,
+            video_url = @video_url WHERE id = @id`
   ).run({ ...parsed.episode, id: existing.id });
 
   // Lecteurs supplémentaires : une adresse ou un code d'intégration par ligne.

@@ -935,6 +935,90 @@ async function waitForServer(proc) {
       check('ma liste est de nouveau vide', (await alice('GET', '/api/content')).data.favoris.length === 0);
     }
 
+    console.log('\n— Carrousel, genres et images');
+    {
+      const serie = (await admin('POST', '/api/admin/content', {
+        type: 'serie', title: 'Série en paysage', genre: 'Aventure', featured: 1,
+        backdrop_url: 'https://exemple.test/paysage.jpg',
+        poster_url: 'https://exemple.test/affiche.jpg',
+      })).data.id;
+
+      const autre = (await admin('POST', '/api/admin/content', {
+        type: 'film', title: 'Film du même genre', genre: 'Aventure',
+      })).data.id;
+
+      const solo = (await admin('POST', '/api/admin/content', {
+        type: 'film', title: 'Film seul en son genre', genre: 'Documentaire',
+      })).data.id;
+
+      // L'image en paysage doit survivre a l'aller-retour : c'est elle qui
+      // remplit le carrousel, l'affiche etant en portrait.
+      let fiche = (await alice('GET', '/api/content/' + serie)).data.item;
+      check('l’image en paysage est conservée',
+        fiche.backdrop_url === 'https://exemple.test/paysage.jpg', String(fiche.backdrop_url));
+
+      let cat = (await alice('GET', '/api/content')).data;
+      check('le catalogue expose un carrousel', Array.isArray(cat.carrousel),
+        typeof cat.carrousel);
+      check('le titre mis en avant est dans le carrousel',
+        cat.carrousel.some((c) => c.id === serie),
+        cat.carrousel.map((c) => c.title).join(', '));
+      check('le carrousel porte l’image en paysage',
+        cat.carrousel.find((c) => c.id === serie)?.backdrop_url ===
+          'https://exemple.test/paysage.jpg');
+
+      // Genres : reellement presents, comptes, et tries du plus fourni au moins.
+      check('le catalogue expose les genres', Array.isArray(cat.genres));
+      const aventure = cat.genres.find((g) => g.nom === 'Aventure');
+      check('un genre porte son nombre de titres', aventure && aventure.total >= 2,
+        JSON.stringify(aventure));
+      check('les genres sont triés du plus fourni au moins fourni',
+        cat.genres.every((g, i) => i === 0 || cat.genres[i - 1].total >= g.total),
+        cat.genres.map((g) => `${g.nom}:${g.total}`).join(' '));
+      check('un genre à un seul titre est listé aussi',
+        cat.genres.some((g) => g.nom === 'Documentaire'));
+
+      // Image d'episode : enregistrement, relecture, et presence sur la reprise.
+      const ep1 = (await admin('POST', `/api/admin/content/${serie}/episodes`, {
+        season: 1, number: 1, title: 'Départ',
+        thumbnail_url: 'https://exemple.test/e1.jpg',
+        video_url: 'https://lecteur.example.com/e1',
+      })).data.episode;
+      check('l’image d’épisode est enregistrée',
+        ep1.thumbnail_url === 'https://exemple.test/e1.jpg', String(ep1.thumbnail_url));
+
+      await admin('POST', `/api/admin/content/${serie}/episodes`, {
+        season: 1, number: 2, title: 'Suite',
+        thumbnail_url: 'https://exemple.test/e2.jpg',
+        video_url: 'https://lecteur.example.com/e2',
+      });
+
+      fiche = (await alice('GET', '/api/content/' + serie)).data.item;
+      check('la fiche porte l’image de chaque épisode',
+        fiche.episodes.every((e) => e.thumbnail_url && e.thumbnail_url.startsWith('https://')),
+        JSON.stringify(fiche.episodes.map((e) => e.thumbnail_url)));
+
+      // Modifier un episode ne doit pas effacer son image au passage.
+      await admin('PUT', '/api/admin/episodes/' + ep1.id, { title: 'Le vrai départ' });
+      const relu = (await admin('GET', `/api/admin/content/${serie}/episodes`))
+        .data.episodes.find((e) => e.id === ep1.id);
+      check('modifier un épisode ne perd pas son image',
+        relu.thumbnail_url === 'https://exemple.test/e1.jpg', String(relu.thumbnail_url));
+
+      // La reprise doit porter l'image : c'est tout l'interet de la carte.
+      await alice('POST', `/api/content/${serie}/watched`, { episodeId: ep1.id, watched: true });
+      cat = (await alice('GET', '/api/content')).data;
+      const reprise = cat.reprendre.find((r) => r.id === serie);
+      check('la reprise pointe l’épisode suivant', reprise && reprise.resume.number === 2,
+        JSON.stringify(reprise?.resume));
+      check('la reprise porte l’image de l’épisode',
+        reprise.resume.thumbnail_url === 'https://exemple.test/e2.jpg',
+        String(reprise.resume.thumbnail_url));
+
+      await alice('POST', `/api/content/${serie}/watched`, { episodeId: ep1.id, watched: false });
+      for (const id of [serie, autre, solo]) await admin('DELETE', '/api/admin/content/' + id);
+    }
+
     console.log('\n— Journal et statistiques');
     r = await admin('GET', '/api/admin/logs');
     check('journal alimenté', r.status === 200 && r.data.logs.length > 5);
@@ -1051,6 +1135,12 @@ async function waitForServer(proc) {
               .all().length === 1);
           check('les commentaires déjà écrits sont conservés',
             apres.prepare('SELECT COUNT(*) AS n FROM episode_comments').get().n === 1);
+          check('la colonne de l’image en paysage est ajoutée',
+            apres.prepare('PRAGMA table_info(content)').all()
+              .some((c) => c.name === 'backdrop_url'));
+          check('la colonne de l’image d’épisode est ajoutée',
+            apres.prepare('PRAGMA table_info(episodes)').all()
+              .some((c) => c.name === 'thumbnail_url'));
           apres.close();
         }
       } finally {

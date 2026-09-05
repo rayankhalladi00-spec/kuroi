@@ -42,23 +42,32 @@ function card(item) {
 }
 
 // Carte « Reprendre » : elle porte l'episode a lancer et y mene directement.
+//
+// Format paysage, contrairement aux autres cartes : c'est l'image de l'episode
+// qu'on montre ici, pas l'affiche de la serie. A defaut d'image d'episode on
+// retombe sur l'image large du titre, puis sur son affiche.
 function resumeCard(item) {
-  const poster = item.poster_url ? ` style="background-image:url('${esc(item.poster_url)}')"` : '';
   const ep = item.resume;
+  const image = ep.thumbnail_url || item.backdrop_url || item.poster_url;
+  const fond = image ? ` style="background-image:url('${esc(image)}')"` : '';
   const progression = item.episodeCount
     ? Math.round((item.watchedCount / item.episodeCount) * 100)
     : 0;
   return `
     <a class="card resume" href="/watch.html?id=${item.id}&ep=${ep.id}"
        aria-label="Reprendre ${esc(item.title)} à la saison ${ep.season} épisode ${ep.number}">
-      <div class="card-img"${poster}>
-        ${item.poster_url ? '' : icon('tv', { cls: 'icon-lg' })}
+      <div class="resume-img"${fond}>
+        ${image ? '' : icon('tv', { cls: 'icon-lg' })}
         <span class="card-play">${icon('play')}</span>
         <span class="resume-bar"><span style="width:${progression}%"></span></span>
       </div>
       <div class="card-body">
-        <div class="card-title">${esc(item.title)}</div>
-        <div class="card-sub">S${ep.season} E${ep.number}${ep.title ? ' · ' + esc(ep.title) : ''}</div>
+        <div class="resume-serie">${esc(item.title)}${
+          item.seasonCount > 1 ? ' : Saison ' + ep.season : ''
+        }</div>
+        <div class="resume-ep">S${ep.season} E${ep.number}${
+          ep.title ? ' - ' + esc(ep.title) : ''
+        }</div>
       </div>
     </a>`;
 }
@@ -87,12 +96,15 @@ function row(title, items) {
     </section>`;
 }
 
-function hero(item) {
-  if (!item) return '';
-  const bg = item.poster_url ? `background-image:url('${esc(item.poster_url)}')` : '';
+// Une diapositive du carrousel. L'image large est preferee a l'affiche : une
+// affiche est en portrait, etiree en banniere elle devient illisible.
+function heroSlide(item, index) {
+  const image = item.backdrop_url || item.poster_url;
+  const bg = image ? `background-image:url('${esc(image)}')` : '';
   return `
-    <header class="hero ${item.poster_url ? '' : 'no-poster'}" style="${bg}">
-      <div class="hero-inner anim-fade-up">
+    <article class="hero-slide ${image ? '' : 'no-poster'} ${index === 0 ? 'on' : ''}"
+             style="${bg}" data-slide="${index}" ${index === 0 ? '' : 'aria-hidden="true"'}>
+      <div class="hero-inner">
         <div class="hero-meta">
           ${icon(TYPE_ICON[item.type])}
           <span>${esc(SINGULAR[item.type])}${item.year ? ' · ' + esc(item.year) : ''}${
@@ -111,7 +123,108 @@ function hero(item) {
           </button>
         </div>
       </div>
-    </header>`;
+    </article>`;
+}
+
+function hero(items) {
+  const liste = (items || []).filter(Boolean);
+  if (!liste.length) return '';
+  if (liste.length === 1) return `<div class="hero">${heroSlide(liste[0], 0)}</div>`;
+
+  const pastilles = liste
+    .map(
+      (it, i) =>
+        `<button class="hero-dot ${i === 0 ? 'on' : ''}" data-goto-slide="${i}" type="button"
+                 aria-label="Aller au titre ${i + 1} : ${esc(it.title)}"></button>`
+    )
+    .join('');
+
+  return `
+    <div class="hero" id="heroCarrousel">
+      ${liste.map(heroSlide).join('')}
+      <button class="hero-arrow prev" data-slide-move="-1" type="button"
+              aria-label="Titre précédent">${icon('back')}</button>
+      <button class="hero-arrow next" data-slide-move="1" type="button"
+              aria-label="Titre suivant">${icon('back')}</button>
+      <div class="hero-dots">${pastilles}</div>
+    </div>`;
+}
+
+// Defilement du carrousel. L'avance automatique s'arrete des qu'on survole ou
+// qu'on prend le clavier, et ne demarre pas du tout si le systeme demande a
+// limiter les animations.
+let minuterieHero = null;
+
+function wireHero() {
+  const box = document.getElementById('heroCarrousel');
+  if (!box) return;
+
+  const slides = [...box.querySelectorAll('.hero-slide')];
+  const dots = [...box.querySelectorAll('[data-goto-slide]')];
+  let actuel = 0;
+
+  const montrer = (i) => {
+    actuel = (i + slides.length) % slides.length;
+    slides.forEach((el, n) => {
+      el.classList.toggle('on', n === actuel);
+      if (n === actuel) el.removeAttribute('aria-hidden');
+      else el.setAttribute('aria-hidden', 'true');
+    });
+    dots.forEach((d, n) => d.classList.toggle('on', n === actuel));
+  };
+
+  const sobre = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const relancer = () => {
+    clearInterval(minuterieHero);
+    if (!sobre) minuterieHero = setInterval(() => montrer(actuel + 1), 7000);
+  };
+
+  box.addEventListener('click', (e) => {
+    const fleche = e.target.closest('[data-slide-move]');
+    if (fleche) {
+      montrer(actuel + Number(fleche.dataset.slideMove));
+      relancer();
+      return;
+    }
+    const pastille = e.target.closest('[data-goto-slide]');
+    if (pastille) {
+      montrer(Number(pastille.dataset.gotoSlide));
+      relancer();
+    }
+  });
+
+  box.addEventListener('mouseenter', () => clearInterval(minuterieHero));
+  box.addEventListener('mouseleave', relancer);
+  box.addEventListener('focusin', () => clearInterval(minuterieHero));
+  box.addEventListener('focusout', relancer);
+
+  relancer();
+}
+
+// Barre des genres. Elle ne liste que les genres reellement presents, avec leur
+// nombre de titres, et le genre choisi vit dans l'adresse : la page reste
+// partageable et le bouton retour fonctionne.
+function genreBar(genres, actif) {
+  if (!genres || genres.length < 2) return '';
+  const lien = (g) => {
+    const params = new URLSearchParams(location.search);
+    if (g) params.set('g', g);
+    else params.delete('g');
+    params.delete('q');
+    const qs = params.toString();
+    return '/' + (qs ? '?' + qs : '');
+  };
+  return `
+    <div class="genre-bar" id="genreBar">
+      <a class="chip ${actif ? '' : 'on'}" href="${lien(null)}">Tous</a>
+      ${genres
+        .map(
+          (g) => `<a class="chip ${actif === g.nom ? 'on' : ''}" href="${lien(g.nom)}">
+                    ${esc(g.nom)}<span class="chip-count">${g.total}</span>
+                  </a>`
+        )
+        .join('')}
+    </div>`;
 }
 
 function skeletons(n = 7) {
@@ -120,7 +233,12 @@ function skeletons(n = 7) {
 
 /* -------------------------------- assemblage ------------------------------- */
 
+// Genre demande dans l'adresse, s'il y en a un.
+const genreActif = () => new URLSearchParams(location.search).get('g');
+
 function matches(item) {
+  const g = genreActif();
+  if (g && item.genre !== g) return false;
   if (!query) return true;
   const q = query.toLowerCase();
   return [item.title, item.genre, item.description, item.year]
@@ -142,12 +260,23 @@ function render(user) {
   const favoris = data.favoris.filter(matches);
   const total = groups.reduce((n, [, items]) => n + items.length, 0);
 
+  const genre = genreActif();
+
   let body;
   if (total) {
     body =
-      (!filter && !query ? resumeRow(data.reprendre || []) : '') +
-      (!filter && !query ? row('Ma liste', favoris) : '') +
+      genreBar(data.genres, genre) +
+      (!filter && !query && !genre ? resumeRow(data.reprendre || []) : '') +
+      (!filter && !query && !genre ? row('Ma liste', favoris) : '') +
       groups.map(([type, items]) => row(LABELS[type], items)).join('');
+  } else if (genre) {
+    body =
+      genreBar(data.genres, genre) +
+      `<div class="empty">
+        ${icon('inbox', { cls: 'icon-lg' })}
+        <h2>Rien en « ${esc(genre)} » pour l’instant</h2>
+        <a class="btn btn-primary" href="/">Voir tout le catalogue</a>
+      </div>`;
   } else if (query) {
     body = `<div class="empty">
       ${icon('search', { cls: 'icon-lg' })}
@@ -170,9 +299,13 @@ function render(user) {
 
   // Le héros vit dans son propre conteneur : il doit rester collé sous la barre
   // de navigation, avant la barre de recherche.
-  document.getElementById('hero').innerHTML = !filter && !query ? hero(data.featured) : '';
+  const montrerHero = !filter && !query && !genre;
+  document.getElementById('hero').innerHTML = montrerHero
+    ? hero(data.carrousel && data.carrousel.length ? data.carrousel : [data.featured])
+    : '';
   document.getElementById('view').innerHTML = body;
 
+  wireHero();
   bindCards();
 }
 
@@ -187,6 +320,7 @@ async function toggleFavorite(id, sources) {
     if (it) it.favorite = r.favorite;
   }
   if (data.featured?.id === id) data.featured.favorite = r.favorite;
+  for (const it of data.carrousel || []) if (it.id === id) it.favorite = r.favorite;
   const item = [...data.films, ...data.series, ...data.jeux].find((x) => x.id === id);
   data.favoris = data.favoris.filter((x) => x.id !== id);
   if (r.favorite && item) data.favoris.unshift(item);

@@ -53,6 +53,9 @@ CREATE TABLE IF NOT EXISTS content (
   title        TEXT NOT NULL,
   description  TEXT,
   poster_url   TEXT,
+  -- Image en paysage, pour le carrousel de la page d'accueil. L'affiche
+  -- (poster_url) est en portrait : etiree en banniere elle est illisible.
+  backdrop_url TEXT,
   video_url    TEXT,
   external_url TEXT,
   year         INTEGER,
@@ -96,6 +99,9 @@ CREATE TABLE IF NOT EXISTS episodes (
   number     INTEGER NOT NULL,
   title      TEXT,
   synopsis   TEXT,
+  -- Image de l'episode, en paysage : elle illustre la reprise de lecture et
+  -- la liste des episodes.
+  thumbnail_url TEXT,
   video_url  TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (content_id, season, number)
@@ -235,6 +241,8 @@ ensureColumn('users', 'avatar', 'TEXT');
 // ajoutee explicitement. ALTER TABLE ne pose pas de cle etrangere apres coup,
 // d'ou le rattachement verifie dans la route plutot que par le moteur.
 ensureColumn('episode_comments', 'parent_id', 'INTEGER REFERENCES episode_comments(id)');
+ensureColumn('content', 'backdrop_url', 'TEXT');
+ensureColumn('episodes', 'thumbnail_url', 'TEXT');
 
 // Cet index porte sur une colonne ajoutee par migration : il doit donc etre
 // cree apres elle, et non dans le bloc de creation initial, qui s'execute

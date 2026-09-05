@@ -346,6 +346,15 @@ function contentForm(c = {}) {
       <input id="cPoster" type="hidden" value="${v('poster_url')}">
     </div>
     <div class="field">
+      <label for="cBackdrop">Image en paysage — carrousel d'accueil</label>
+      <input id="cBackdrop" type="url" value="${v('backdrop_url')}"
+             placeholder="https://… (format large, 16/9)">
+      <small class="hint">
+        Facultatif. L'affiche est en portrait : étirée en bannière elle est illisible.
+        Sans cette image, le carrousel retombe sur l'affiche.
+      </small>
+    </div>
+    <div class="field">
       <label>Lecteur — film/série</label>
       <textarea id="cVideo" rows="3"
         placeholder="Colle ici le lien du lecteur, un partage Google Drive, ou tout le code d'intégration &lt;iframe …&gt;">${v('video_url')}</textarea>
@@ -421,6 +430,7 @@ function readContentForm() {
     title: document.getElementById('cTitle').value,
     description: document.getElementById('cDesc').value,
     poster_url: document.getElementById('cPoster').value,
+    backdrop_url: document.getElementById('cBackdrop').value.trim(),
     video_url: document.getElementById('cVideo').value,
     external_url: document.getElementById('cExt').value,
     year: document.getElementById('cYear').value,
@@ -530,6 +540,14 @@ async function manageEpisodes(contentId) {
     <div class="field">
       <label for="edSynopsis-${e.id}">Résumé</label>
       <textarea id="edSynopsis-${e.id}" rows="2" maxlength="800">${esc(e.synopsis || '')}</textarea>
+    </div>
+    <div class="field">
+      <label for="edVignette-${e.id}">Image de l'épisode</label>
+      <input id="edVignette-${e.id}" type="url" value="${esc(e.thumbnail_url || '')}"
+             placeholder="https://… (format large, 16/9)">
+      <small class="hint">
+        Elle illustre la reprise de lecture sur l'accueil et la grille des épisodes.
+      </small>
     </div>
     <div style="display:flex;gap:9px">
       <button class="btn btn-primary btn-sm" data-saveep="${e.id}" type="button">Enregistrer</button>
@@ -662,6 +680,7 @@ async function manageEpisodes(contentId) {
             title: document.getElementById('edTitle-' + id).value,
             video_url: document.getElementById('edVideo-' + id).value,
             synopsis: document.getElementById('edSynopsis-' + id).value,
+            thumbnail_url: document.getElementById('edVignette-' + id).value.trim(),
             sources: document.getElementById('edSources-' + id).value,
           },
         });

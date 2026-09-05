@@ -7,7 +7,6 @@ const TYPE_ICON = { film: 'film', serie: 'tv', jeu: 'game' };
 // interdit d'y lire l'avancement. Impossible donc de savoir quand l'épisode est
 // réellement terminé. On compte à la place le temps passé sur la page, onglet
 // au premier plan, avant de marquer « vu ».
-const SEUIL_IFRAME_MS = 5 * 60 * 1000;
 // Pour un fichier vidéo servi par le site, on connaît vraiment la position de
 // lecture : on marque à 90 %, comme le font les plateformes.
 const SEUIL_VIDEO = 0.9;
@@ -118,20 +117,12 @@ function startChrono() {
 
   if (!sourceCourante()) return majAstuce('');
 
-  let ecoule = 0;
-  const tick = setInterval(() => {
-    if (document.visibilityState !== 'visible') return; // onglet en arrière-plan
-    ecoule += 1000;
-    if (ecoule >= SEUIL_IFRAME_MS) {
-      stopChrono();
-      marquer(cible, true);
-    }
-  }, 1000);
-  chrono = { tick };
-
-  majAstuce(
-    'Le lecteur vient d’un autre site : son avancement n’est pas lisible d’ici. Marqué comme vu après 5 minutes de lecture, ou à la main.'
-  );
+  // Lecteur externe : son avancement n'est pas lisible depuis ici. On marque
+  // donc a l'ouverture, sans attendre. Le delai de cinq minutes qui existait
+  // avant obligeait a laisser l'onglet ouvert pour rien, et un episode ferme
+  // plus tot restait « non vu ». Le bouton permet de revenir dessus.
+  marquer(cible, true);
+  majAstuce('Marqué comme vu à l’ouverture. Le bouton ci-dessus permet de l’enlever.');
 }
 
 function majAstuce(texte) {
@@ -474,6 +465,35 @@ function majBoutonSaison(saison) {
     boutonSaison(saison, eps);
 }
 
+// Une carte par episode : l'image d'abord, le titre dessous. Les selecteurs
+// « .ep[data-ep] », « [data-seen] » et « .ep-seen-label » sont conserves, c'est
+// sur eux que s'appuie markSeen.
+function episodeCarte(e) {
+  const vignette = e.thumbnail_url
+    ? `style="background-image:url('${esc(e.thumbnail_url)}')"`
+    : '';
+  return `
+    <article class="ep ${e.watched ? 'seen' : ''}" data-ep="${e.id}">
+      <button class="ep-open" data-ep="${e.id}" type="button"
+              aria-label="Lire l’épisode ${e.number}${e.title ? ' — ' + esc(e.title) : ''}">
+        <span class="ep-vignette" ${vignette}>
+          ${e.thumbnail_url ? '' : `<span class="ep-vide">${icon(e.video_url ? 'play' : 'inbox')}</span>`}
+          <span class="ep-play">${icon(e.video_url ? 'play' : 'inbox')}</span>
+          ${e.watched ? `<span class="ep-vu">${icon('check')}</span>` : ''}
+        </span>
+        <span class="ep-legende">
+          <span class="ep-title">E${e.number}${e.title ? ' · ' + esc(e.title) : ''}</span>
+          <span class="ep-note">${badgeNote(e)}</span>
+        </span>
+      </button>
+      <button class="ep-seen" data-seen="${e.id}" type="button"
+              aria-pressed="${e.watched ? 'true' : 'false'}"
+              aria-label="${e.watched ? 'Marquer comme non vu' : 'Marquer comme vu'}">
+        ${icon('check')}<span class="ep-seen-label">${e.watched ? 'Vu' : 'Non vu'}</span>
+      </button>
+    </article>`;
+}
+
 function episodesHtml() {
   if (item.type !== 'serie') return '';
   const list = seasons();
@@ -504,27 +524,9 @@ function episodesHtml() {
           <span class="hint">${eps.filter((e) => e.watched).length} épisode(s) vu(s) sur ${eps.length}</span>
           ${boutonSaison(s, eps)}
         </div>
-        ${eps
-          .map(
-            (e) => `
-          <div class="ep ${e.watched ? 'seen' : ''}" data-ep="${e.id}">
-            <button class="ep-open" data-ep="${e.id}" type="button">
-              <span class="ep-num">${e.number}</span>
-              <span class="ep-body">
-                <span class="ep-title">${esc(e.title || 'Épisode ' + e.number)}</span>
-                ${e.synopsis ? `<span class="ep-synopsis">${esc(e.synopsis)}</span>` : ''}
-              </span>
-              <span class="ep-note">${badgeNote(e)}</span>
-              <span class="ep-play">${icon(e.video_url ? 'play' : 'inbox')}</span>
-            </button>
-            <button class="ep-seen" data-seen="${e.id}" type="button"
-                    aria-pressed="${e.watched ? 'true' : 'false'}"
-                    aria-label="${e.watched ? 'Marquer comme non vu' : 'Marquer comme vu'}">
-              ${icon('check')}<span class="ep-seen-label">${e.watched ? 'Vu' : 'Non vu'}</span>
-            </button>
-          </div>`
-          )
-          .join('')}
+        <div class="ep-grid">
+        ${eps.map(episodeCarte).join('')}
+        </div>
       </div>`
     )
     .join('');

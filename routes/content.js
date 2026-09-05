@@ -44,7 +44,7 @@ const listSources = db.prepare(
 );
 
 const listEpisodes = db.prepare(
-  `SELECT id, season, number, title, synopsis, video_url
+  `SELECT id, season, number, title, synopsis, thumbnail_url, video_url
    FROM episodes WHERE content_id = ? ORDER BY season, number`
 );
 
@@ -122,7 +122,7 @@ function resumeRows(userId) {
     .all(userId);
 
   const suivant = db.prepare(
-    `SELECT e.id, e.season, e.number, e.title
+    `SELECT e.id, e.season, e.number, e.title, e.thumbnail_url
      FROM episodes e
      WHERE e.content_id = ?
        AND e.id NOT IN (SELECT episode_id FROM watched
@@ -152,8 +152,28 @@ router.get('/', (req, res) => {
     .filter((r) => r.next && byId.has(r.content_id))
     .map((r) => ({ ...byId.get(r.content_id), resume: r.next }));
 
+  // Le carrousel montre les titres mis en avant. Aucun de coche : on prend les
+  // plus recents, pour qu'il ne soit jamais vide.
+  const enAvant = rows.filter((r) => r.featured);
+  const carrousel = (enAvant.length ? enAvant : rows.slice(0, 5)).slice(0, 8);
+
+  // Genres reellement presents, avec leur nombre de titres. Construits ici
+  // plutot que devines cote client : le client ne voit pas les titres filtres.
+  const parGenre = new Map();
+  for (const r of rows) {
+    if (!r.genre) continue;
+    parGenre.set(r.genre, (parGenre.get(r.genre) || 0) + 1);
+  }
+  const genres = [...parGenre.entries()]
+    .map(([nom, total]) => ({ nom, total }))
+    .sort((a, b) => b.total - a.total || a.nom.localeCompare(b.nom, 'fr'));
+
   res.json({
-    featured: rows.find((r) => r.featured) || rows[0] || null,
+    // « featured » reste au singulier pour ne rien casser ; « carrousel » est
+    // la liste complete.
+    featured: carrousel[0] || null,
+    carrousel,
+    genres,
     reprendre,
     favoris: rows.filter((r) => r.favorite),
     films: rows.filter((r) => r.type === 'film'),

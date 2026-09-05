@@ -365,7 +365,7 @@ h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; }
 .row-scroll {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: clamp(190px, calc((92vw - 5.4 * 18px) / 6.4), 560px);
+  grid-auto-columns: clamp(190px, calc((92vw - 5.15 * 18px) / 6.15), 560px);
   gap: 18px;
   overflow-x: auto;
   padding: 4px 4px 16px;

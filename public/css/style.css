@@ -327,7 +327,7 @@ h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; }
   text-transform: uppercase; letter-spacing: .09em;
   margin-bottom: 12px;
 }
-.hero-slide h1 { font-size: clamp(32px, 5.4vw, 60px); margin: 0 0 14px; font-weight: 800; }
+.hero-slide h1 { font-size: clamp(32px, 5.4vw, 82px); margin: 0 0 14px; font-weight: 800; }
 .hero-slide p {
   color: var(--text-muted);
   font-size: 17px;
@@ -366,8 +366,8 @@ h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; }
 .row-scroll {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 230px;
-  gap: 14px;
+  grid-auto-columns: clamp(190px, calc((92vw - 5.4 * 18px) / 6.4), 560px);
+  gap: 18px;
   overflow-x: auto;
   padding: 4px 4px 16px;
   margin: -4px -4px -16px;
@@ -930,7 +930,7 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .nav-links::-webkit-scrollbar { display: none; }
   .nav-links a { white-space: nowrap; padding: 6px 10px; }
   .hero { min-height: 54vh; padding-top: 110px; }
-  .row-scroll { grid-auto-columns: 160px; }
+  .row-scroll { grid-auto-columns: calc((92vw - 1.5 * 12px) / 2.5); gap: 12px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 13px; }
   .auth-card { padding: 30px 22px; }
   .idea { flex-direction: column; }
@@ -1770,7 +1770,7 @@ span.com-avatar {
 
 .hero-affiche {
   flex: none;
-  width: 200px;
+  width: clamp(150px, 14vw, 340px);
   aspect-ratio: 2 / 3;
   border-radius: var(--radius-lg);
   border: 1px solid var(--line-strong);
@@ -1818,7 +1818,7 @@ span.com-avatar {
 
 .hero-vignette {
   flex: none;
-  width: 58px;
+  width: clamp(48px, 4.2vw, 104px);
   aspect-ratio: 2 / 3;
   padding: 0;
   border: 2px solid transparent;

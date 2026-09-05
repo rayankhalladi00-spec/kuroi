@@ -334,7 +334,15 @@ h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; }
   margin: 0 0 26px;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-.hero-actions { display: flex; gap: 11px; flex-wrap: wrap; }
+.hero-actions { display: flex; gap: 11px; flex-wrap: wrap; align-items: center; }
+
+.btn-icone {
+  width: 44px;
+  padding: 0;
+  display: grid; place-items: center;
+}
+.btn-icone.on { color: var(--accent); border-color: var(--accent); }
+.btn-icone.on svg { fill: currentColor; }
 
 /* --------------------------------- rangées --------------------------------- */
 
@@ -382,19 +390,20 @@ h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; }
 
 .card {
   position: relative;
-  background: var(--bg-card);
-  border: 1px solid var(--line);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  transition: transform var(--normal) var(--ease);
+}
+.card:hover, .card:focus-visible { transform: translateY(-6px); }
+/* L'affiche porte le relief, pas la carte : c'est elle qu'on voit. */
+.card .card-img {
   border-radius: var(--radius);
   overflow: hidden;
-  cursor: pointer;
-  transition: transform var(--normal) var(--ease), box-shadow var(--normal) var(--ease),
-              border-color var(--normal) var(--ease);
+  transition: box-shadow var(--normal) var(--ease);
 }
-.card:hover, .card:focus-visible {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow);
-  border-color: var(--line-strong);
-}
+.card:hover .card-img { box-shadow: var(--shadow); }
 
 .card-img {
   position: relative;

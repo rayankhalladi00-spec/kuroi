@@ -153,8 +153,11 @@ function heroSlide(item, index, tous) {
               ${icon(item.type === 'jeu' ? 'download' : 'play')}
               ${item.type === 'jeu' ? 'Télécharger' : 'Regarder'}
             </a>
-            <button class="btn" data-fav="${item.id}" type="button" aria-pressed="${item.favorite}">
-              ${icon('heart')} ${item.favorite ? 'Dans ma liste' : 'Ma liste'}
+            <button class="btn btn-icone ${item.favorite ? 'on' : ''}" data-fav="${item.id}"
+                    type="button" aria-pressed="${item.favorite}"
+                    aria-label="${item.favorite ? 'Retirer de ma liste' : 'Ajouter à ma liste'}"
+                    title="${item.favorite ? 'Dans ma liste' : 'Ma liste'}">
+              ${icon('heart')}
             </button>
           </div>
           ${tous.length > 1 ? heroVignettes(tous, index) : ''}
@@ -284,6 +287,13 @@ function render(user) {
   let body;
   if (total) {
     body =
+      // Ordre voulu : les nouveautes ouvrent la page, la reprise vient juste
+      // apres — c'est la deuxieme rangee, pas la premiere.
+      (accueilComplet
+        ? row('Nouveautés', (data.nouveautes || []).filter(matches), {
+            sub: 'Les derniers titres ajoutés au catalogue.',
+          })
+        : '') +
       (accueilComplet ? resumeRow(data.reprendre || []) : '') +
       (accueilComplet ? row('Ma liste', favoris) : '') +
       groups.map(([type, items]) => row(LABELS[type], items)).join('') +
@@ -346,9 +356,10 @@ async function toggleFavorite(id, sources) {
   for (const el of sources) {
     el.classList.toggle('on', r.favorite);
     el.setAttribute('aria-pressed', String(r.favorite));
-    if (el.classList.contains('card-fav'))
+    if (el.classList.contains('card-fav') || el.classList.contains('btn-icone')) {
       el.setAttribute('aria-label', r.favorite ? 'Retirer de ma liste' : 'Ajouter à ma liste');
-    else el.innerHTML = `${icon('heart')} ${r.favorite ? 'Dans ma liste' : 'Ma liste'}`;
+      el.title = r.favorite ? 'Dans ma liste' : 'Ma liste';
+    } else el.innerHTML = `${icon('heart')} ${r.favorite ? 'Dans ma liste' : 'Ma liste'}`;
   }
 }
 

@@ -1150,6 +1150,14 @@ async function waitForServer(proc) {
 
     console.log('\n— Scripts du navigateur');
     {
+      // Une suppression de code a un jour emporte skeletons() en laissant son
+      // appel : syntaxe valide, tests au vert, et accueil entierement vide.
+      // Cette verification relit chaque script de page et signale tout appel
+      // vers une fonction qui n'existe nulle part.
+      const appelsSansDefinition = require('./check-scripts').verifier();
+      check('aucun script de page n’appelle une fonction inexistante',
+        appelsSansDefinition.length === 0, appelsSansDefinition.join(' | '));
+
       // Les scripts de page partagent l'espace global avec common.js. Une
       // fonction homonyme y ecrase silencieusement celle de common.js : c'est
       // ainsi qu'un renderNav local a fait disparaitre la barre de navigation

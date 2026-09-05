@@ -173,6 +173,9 @@ router.get('/', (req, res) => {
     // la liste complete.
     featured: carrousel[0] || null,
     carrousel,
+    // Les derniers titres ajoutes. rows est deja trie par sort_order puis id
+    // decroissant : les plus recents sont en tete.
+    nouveautes: rows.slice(0, 12),
     genres,
     reprendre,
     favoris: rows.filter((r) => r.favorite),

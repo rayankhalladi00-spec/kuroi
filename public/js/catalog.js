@@ -242,6 +242,13 @@ function genreRows(genres, tous) {
     .join('');
 }
 
+// Rectangles gris affiches pendant le chargement du catalogue.
+function skeletons(n = 7) {
+  return `<div class="row"><div class="row-scroll">${'<div class="skeleton skeleton-card"></div>'.repeat(n)}</div></div>`;
+}
+
+/* -------------------------------- assemblage ------------------------------- */
+
 // Genre demande dans l'adresse, s'il y en a un.
 const genreActif = () => new URLSearchParams(location.search).get('g');
 

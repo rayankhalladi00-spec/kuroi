@@ -48,7 +48,27 @@ app.set('trust proxy', 1);
 
 // La CSP est gérée à part : la liste des lecteurs autorisés dépend du
 // catalogue, or helmet attend des directives figées.
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+//
+// referrerPolicy : helmet pose « no-referrer » par défaut, et c'est ce réglage
+// qui empêchait les lecteurs vidéo de fonctionner sur iPhone.
+//
+// Safari sur iOS propage la politique de la page de départ à la page vers
+// laquelle on navigue, et aux iframes. Une page d'hébergeur ouverte depuis
+// Kuroi héritait donc de « no-referrer » : sa propre requête vers son flux
+// vidéo partait sans Referer, et l'hébergeur la refusait (mesuré : 403 sans
+// Referer, 302 avec). Le même lecteur ouvert depuis un site qui laisse la
+// politique par défaut fonctionnait, sur le même téléphone.
+//
+// « strict-origin-when-cross-origin » est la valeur par défaut des navigateurs
+// modernes : elle envoie l'adresse complète en même origine — ce dont le
+// lecteur a besoin — et seulement l'origine vers l'extérieur, jamais le chemin.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  })
+);
 
 // Lecteurs autorisés : Google Drive, plus les domaines réellement utilisés par
 // le catalogue — on n'ouvre que le strict nécessaire. L'en-tête n'est

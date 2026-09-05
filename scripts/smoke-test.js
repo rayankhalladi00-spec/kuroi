@@ -1089,6 +1089,41 @@ async function waitForServer(proc) {
         orphelins.length ? `sans section : ${orphelins.join(', ')}` : 'aucun onglet trouvé');
     }
 
+    console.log('\n— Referer des lecteurs vidéo');
+    {
+      // Ces deux reglages ont empeche pendant des mois tout lecteur video de
+      // fonctionner sur iPhone. Safari sur iOS propage la politique de referer
+      // de la page de depart a la page ouverte, iframe comprise. Avec
+      // « no-referrer », la page de l'hebergeur reclamait son propre flux sans
+      // Referer, et l'hebergeur la refusait (403 mesure sur sibnet ; 302 des
+      // qu'un Referer de son origine etait present).
+      //
+      // Le meme lecteur ouvert depuis un site qui laisse la politique par
+      // defaut fonctionnait, sur le meme telephone : c'est ce qui a permis de
+      // remonter jusqu'ici.
+      const entetes = (await fetch(BASE + '/login.html')).headers;
+      const politique = (entetes.get('referrer-policy') || '').toLowerCase();
+      check('la politique de referer ne coupe pas le referer',
+        politique !== 'no-referrer' && politique !== 'same-origin',
+        `Referrer-Policy: ${politique || '(absent)'}`);
+      check('la politique de referer laisse passer la même origine en entier',
+        politique === 'strict-origin-when-cross-origin', politique);
+
+      // rel="noreferrer" sur le lien de secours produisait le meme effet, mais
+      // pour l'ouverture en nouvel onglet : d'ou le « meme en nouvel onglet, ca
+      // ne marche pas ». noopener seul protege autant sans couper le Referer.
+      const watchJs = fs.readFileSync(
+        path.join(__dirname, '..', 'public', 'js', 'watch.js'), 'utf8'
+      );
+      check('le lien « ouvrir dans un nouvel onglet » ne coupe pas le referer',
+        !/rel="[^"]*noreferrer/.test(watchJs),
+        (watchJs.match(/rel="[^"]*"/g) || []).join(' '));
+      check('ce lien garde tout de même noopener',
+        /rel="noopener"/.test(watchJs));
+      check('l’iframe du lecteur pose sa politique de referer',
+        /referrerpolicy="strict-origin-when-cross-origin"/.test(watchJs));
+    }
+
     console.log('\n— Pages statiques');
     check('page de connexion servie', (await fetch(BASE + '/login.html')).status === 200);
 

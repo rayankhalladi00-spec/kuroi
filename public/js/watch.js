@@ -61,13 +61,23 @@ function playerHtml(url, kind) {
     'allow-orientation-lock',
   ].join(' ');
 
+  // referrerpolicy : sans lui, l'iframe herite de la politique de cette page.
+  // Pose explicitement, le lecteur garde de quoi demander son propre flux meme
+  // si l'en-tete du site change un jour. Voir la note dans server.js.
+  //
+  // rel : « noopener » seulement, surtout PAS « noreferrer ». noreferrer coupe
+  // le Referer du nouvel onglet, et Safari sur iOS propage cette absence a la
+  // page ouverte : l'hebergeur refusait alors son propre flux (403). C'etait la
+  // cause du « meme en nouvel onglet, ca ne marche pas ». noopener suffit a la
+  // protection : il empeche la page ouverte d'atteindre window.opener.
   return `<div class="player">
     <iframe src="${esc(src)}" width="640" height="384" frameborder="0" scrolling="no"
-            allowfullscreen sandbox="${bacASable}"></iframe>
+            allowfullscreen sandbox="${bacASable}"
+            referrerpolicy="strict-origin-when-cross-origin"></iframe>
   </div>
   <p class="player-fallback">
     Le lecteur reste noir ?
-    <a href="${esc(src)}" target="_blank" rel="noopener noreferrer">Ouvrir dans un nouvel onglet</a>
+    <a href="${esc(src)}" target="_blank" rel="noopener">Ouvrir dans un nouvel onglet</a>
   </p>`;
 }
 

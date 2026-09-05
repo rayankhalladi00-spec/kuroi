@@ -964,6 +964,7 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .nav-links a { white-space: nowrap; padding: 6px 10px; }
   .hero { min-height: 54vh; padding-top: 110px; }
   .row-scroll { grid-auto-columns: calc((92vw - 1.5 * 12px) / 2.5); gap: 12px; }
+  .row-scroll-paysage { grid-auto-columns: calc((92vw - 0.35 * 12px) / 1.35); }
   .grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 13px; }
   .auth-card { padding: 30px 22px; }
   .idea { flex-direction: column; }
@@ -1668,7 +1669,12 @@ span.com-avatar {
 .hero-arrow.next svg { transform: scaleX(-1); }
 
 /* Carte « Reprendre » : format paysage, c'est l'image de l'épisode. */
-.card.resume { width: 300px; }
+/* Les cartes « Reprendre » sont en paysage : elles ont besoin de colonnes plus
+   larges que les affiches. C'est la rangee qui les dimensionne — une largeur
+   posee sur la carte elle-meme deborde de la colonne et chevauche la voisine. */
+.row-scroll-paysage {
+  grid-auto-columns: clamp(240px, calc((92vw - 3.3 * 18px) / 4.3), 520px);
+}
 .resume-img {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -1840,7 +1846,6 @@ span.com-avatar {
 .ep-grid .ep-seen svg { width: 14px; height: 14px; }
 
 @media (max-width: 560px) {
-  .card.resume { width: 240px; }
   .hero-arrow { display: none; }
 }
 

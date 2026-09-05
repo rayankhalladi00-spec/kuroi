@@ -80,7 +80,7 @@ function resumeRow(items) {
         <h2>Reprendre</h2>
         <span class="row-count">${items.length}</span>
       </div>
-      <div class="row-scroll stagger">${items.map(resumeCard).join('')}</div>
+      <div class="row-scroll row-scroll-paysage stagger">${items.map(resumeCard).join('')}</div>
     </section>`;
 }
 

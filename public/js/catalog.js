@@ -5,7 +5,6 @@ const SINGULAR = { film: 'Film', serie: 'Série', jeu: 'Jeu' };
 const TYPE_ICON = { film: 'film', serie: 'tv', jeu: 'game' };
 
 let data = null;
-let query = '';
 
 const pageFor = (item) => (item.type === 'jeu' ? 'game.html' : 'watch.html');
 
@@ -261,12 +260,7 @@ const genreActif = () => new URLSearchParams(location.search).get('g');
 
 function matches(item) {
   const g = genreActif();
-  if (g && item.genre !== g) return false;
-  if (!query) return true;
-  const q = query.toLowerCase();
-  return [item.title, item.genre, item.description, item.year]
-    .filter(Boolean)
-    .some((v) => String(v).toLowerCase().includes(q));
+  return !g || item.genre === g;
 }
 
 function render(user) {
@@ -285,7 +279,7 @@ function render(user) {
 
   const genre = genreActif();
 
-  const accueilComplet = !filter && !query && !genre;
+  const accueilComplet = !filter && !genre;
   const tous = [...data.films, ...data.series, ...data.jeux];
 
   let body;
@@ -309,13 +303,6 @@ function render(user) {
         <h2>Rien en « ${esc(genre)} » pour l’instant</h2>
         <a class="btn btn-primary" href="/">Voir tout le catalogue</a>
       </div>`;
-  } else if (query) {
-    body = `<div class="empty">
-      ${icon('search', { cls: 'icon-lg' })}
-      <h2>Aucun résultat pour « ${esc(query)} »</h2>
-      <p>Tu ne trouves pas ce que tu cherches ?</p>
-      <a class="btn btn-primary" href="/idees.html">${icon('idea')} Propose-le</a>
-    </div>`;
   } else {
     body = `<div class="empty">
       ${icon('inbox', { cls: 'icon-lg' })}
@@ -331,7 +318,7 @@ function render(user) {
 
   // Le héros vit dans son propre conteneur : il doit rester collé sous la barre
   // de navigation, avant la barre de recherche.
-  const montrerHero = !filter && !query && !genre;
+  const montrerHero = !filter && !genre;
   document.getElementById('hero').innerHTML = montrerHero
     ? hero(data.carrousel && data.carrousel.length ? data.carrousel : [data.featured])
     : '';
@@ -409,26 +396,12 @@ function bindCards() {
     renderNav(user, filter ? LABELS[filter] : 'Accueil') +
     `<div id="main">
        <div id="hero"></div>
-       <div class="row">
-         <div class="toolbar">
-           <div class="search-wrap">
-             ${icon('search')}
-             <input id="search" type="search" placeholder="Rechercher un titre, un genre…"
-                    aria-label="Rechercher dans le catalogue" autocomplete="off">
-           </div>
-         </div>
-       </div>
        <div id="view">${skeletons()}</div>
      </div>`;
 
   wireNav();
 
   let timer;
-  document.getElementById('search').addEventListener('input', (e) => {
-    query = e.target.value.trim();
-    clearTimeout(timer);
-    timer = setTimeout(() => render(user), 160);
-  });
 
   data = await api('/api/content');
   render(user);

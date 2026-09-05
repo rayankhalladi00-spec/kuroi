@@ -554,7 +554,7 @@ function episodesHtml() {
     )
     .join('');
 
-  return `<section class="section">
+  return `<section class="section section-large">
     <div class="ep-tete">
       <h2>Épisodes <span class="row-count">${item.episodeCount}</span></h2>
       ${outils}

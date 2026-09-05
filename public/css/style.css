@@ -976,10 +976,17 @@ td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 /* ------------------------------ fiche de lecture --------------------------- */
 
 .watch-wrap {
-  max-width: 1120px;
-  margin: 0 auto;
   padding: 24px 4vw 80px;
   animation: fade-up var(--normal) var(--ease) both;
+}
+
+/* Le texte reste dans une colonne lisible : une description etalee sur deux
+   metres de large ne se lit pas. Seules les grilles prennent toute la place. */
+.watch-head, .player, .player-fallback, #episodeSocial, .ep-nav, #seenHint,
+.watch-wrap > .section:not(.section-large) {
+  max-width: 1120px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .player-empty {
@@ -1932,4 +1939,121 @@ span.com-avatar {
   margin-bottom: 9px;
   border: 1px solid var(--line);
   border-radius: var(--radius-media);
+}
+
+/* ========================= recherche en surimpression ====================== */
+
+/* Declencheur dans la barre : une pastille large, reduite a son icone quand la
+   place manque. */
+.nav-search {
+  display: inline-flex; align-items: center; gap: 9px;
+  min-width: 210px;
+  padding: 8px 13px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--bg-elev);
+  color: var(--text-faint);
+  font: inherit; font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+.nav-search:hover { border-color: var(--line-strong); color: var(--text-muted); }
+.nav-search svg { width: 16px; height: 16px; flex: none; }
+.nav-search span { flex: 1; text-align: left; }
+.nav-search kbd {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  font: inherit; font-size: 11px;
+  color: var(--text-faint);
+}
+
+#rechercheBoite {
+  position: fixed; inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: start center;
+  padding: 14vh 20px 20px;
+}
+
+/* Le fond assombri et floute : la page reste visible derriere, en retrait. */
+.recherche-fond {
+  position: fixed; inset: 0;
+  background: color-mix(in srgb, #000 66%, transparent);
+  backdrop-filter: blur(7px);
+  animation: fade-in var(--fast) var(--ease) both;
+}
+
+.recherche-panneau {
+  position: relative;
+  width: min(560px, 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: fade-up var(--fast) var(--ease) both;
+}
+
+.recherche-champ {
+  display: flex; align-items: center; gap: 11px;
+  padding: 6px 8px 6px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.recherche-champ > svg { width: 18px; height: 18px; color: var(--text-faint); flex: none; }
+.recherche-champ input {
+  flex: 1;
+  min-height: 46px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit; font-size: 16px;
+}
+.recherche-champ input:focus { outline: none; }
+.recherche-champ input::-webkit-search-cancel-button { display: none; }
+
+.recherche-liste { max-height: 46vh; overflow-y: auto; padding: 7px; }
+.recherche-vide { color: var(--text-faint); font-size: 14px; padding: 20px 12px; margin: 0; text-align: center; }
+
+.resultat {
+  display: flex; align-items: center; gap: 13px;
+  padding: 9px 11px;
+  border-radius: var(--radius);
+  color: inherit; text-decoration: none;
+}
+.resultat.on, .resultat:hover { background: var(--bg-hover); }
+.resultat-img {
+  flex: none;
+  width: 44px; height: 62px;
+  display: grid; place-items: center;
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-faint);
+  overflow: hidden;
+}
+.resultat-img img { width: 100%; height: 100%; object-fit: cover; }
+.resultat-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.resultat-texte b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resultat-texte small { color: var(--text-muted); font-size: 13px; }
+/* La fleche pointe vers la droite : le chevron descend par defaut. */
+.resultat-fleche { flex: none; color: var(--text-faint); transform: rotate(-90deg); width: 17px; height: 17px; }
+.resultat.on .resultat-fleche { color: var(--accent); }
+
+.recherche-pied {
+  padding: 14px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.recherche-pied a { color: var(--accent); font-weight: 700; text-decoration: none; margin-left: 6px; }
+.recherche-pied a:hover { text-decoration: underline; }
+
+/* Pendant la recherche, la page derriere ne doit pas defiler. */
+body.sans-defilement { overflow: hidden; }
+
+@media (max-width: 900px) {
+  .nav-search { min-width: 0; padding: 8px; }
+  .nav-search span, .nav-search kbd { display: none; }
 }

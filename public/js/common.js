@@ -39,6 +39,7 @@ const ICONS = {
   moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
   search: '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.7" y2="16.7"/>',
   chevron: '<polyline points="6 9 12 15 18 9"/>',
+  close: '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
   tri: '<line x1="4" y1="6" x2="13" y2="6"/><line x1="4" y1="12" x2="11" y2="12"/><line x1="4" y1="18" x2="9" y2="18"/><polyline points="17 9 20 6 17 3"/><line x1="20" y1="6" x2="20" y2="21"/>',
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
   back: '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
@@ -186,6 +187,11 @@ function renderNav(user, active) {
       </div>
       <div class="nav-spacer"></div>
       <div class="nav-right">
+        <button class="nav-search" id="rechercheBtn" type="button">
+          ${icon('search')}
+          <span>Rechercher…</span>
+          <kbd>Ctrl K</kbd>
+        </button>
         <button class="icon-btn" id="themeBtn" type="button" aria-label="Changer de thème"></button>
         ${user.role === 'admin' ? '<a href="/admin" class="btn btn-sm btn-ghost">Admin</a>' : ''}
         <div class="profile">
@@ -261,6 +267,7 @@ async function choisirAvatar() {
 
 // À appeler après avoir injecté la barre de navigation.
 function wireNav() {
+  brancherRecherche();
   applyTheme(currentTheme());
 
   document.getElementById('themeBtn')?.addEventListener('click', () => {
@@ -302,4 +309,169 @@ function wireNav() {
     addEventListener('scroll', onScroll, { passive: true });
     onScroll();
   }
+}
+
+
+/* -------------------------- recherche en surimpression --------------------- */
+
+// Le catalogue n'est charge qu'a la premiere ouverture, puis garde en memoire :
+// on ne le redemande pas a chaque frappe.
+let catalogueRecherche = null;
+let rechercheOuverte = false;
+let choixRecherche = 0;
+
+const PAGE_DE = (item) => (item.type === 'jeu' ? 'game.html' : 'watch.html');
+
+async function chargerCatalogue() {
+  if (catalogueRecherche) return catalogueRecherche;
+  const d = await api('/api/content');
+  catalogueRecherche = [...d.films, ...d.series, ...d.jeux];
+  return catalogueRecherche;
+}
+
+function resultatHtml(item, actif) {
+  const vignette = item.poster_url
+    ? `<img src="${esc(item.poster_url)}" alt="" loading="lazy">`
+    : `<span class="sans-affiche">${icon(item.type === 'jeu' ? 'game' : 'tv')}</span>`;
+  const dessous = [item.genre, item.year].filter(Boolean).map(esc).join(' • ');
+  return `<a class="resultat ${actif ? 'on' : ''}" href="/${PAGE_DE(item)}?id=${item.id}">
+    <span class="resultat-img">${vignette}</span>
+    <span class="resultat-texte">
+      <b>${esc(item.title)}</b>
+      <small>${dessous || esc(SINGULAIRE_TYPE[item.type] || item.type)}</small>
+    </span>
+    ${icon('chevron', { cls: 'resultat-fleche' })}
+  </a>`;
+}
+
+const SINGULAIRE_TYPE = { film: 'Film', serie: 'Série', jeu: 'Jeu' };
+
+function trouver(liste, q) {
+  const terme = q.trim().toLowerCase();
+  if (!terme) return [];
+  return liste
+    .filter((i) =>
+      [i.title, i.genre, i.description].filter(Boolean).some((v) =>
+        String(v).toLowerCase().includes(terme)
+      )
+    )
+    // Un titre qui commence par le terme passe devant : c'est presque toujours
+    // celui qu'on cherche.
+    .sort((a, b) => {
+      const pa = a.title.toLowerCase().startsWith(terme) ? 0 : 1;
+      const pb = b.title.toLowerCase().startsWith(terme) ? 0 : 1;
+      return pa - pb || a.title.localeCompare(b.title, 'fr');
+    })
+    .slice(0, 20);
+}
+
+function boiteRecherche() {
+  let boite = document.getElementById('rechercheBoite');
+  if (boite) return boite;
+
+  boite = document.createElement('div');
+  boite.id = 'rechercheBoite';
+  boite.hidden = true;
+  boite.innerHTML = `
+    <div class="recherche-fond" data-fermer></div>
+    <div class="recherche-panneau" role="dialog" aria-modal="true" aria-label="Rechercher">
+      <div class="recherche-champ">
+        ${icon('search')}
+        <input id="rechercheInput" type="search" placeholder="Rechercher…"
+               autocomplete="off" aria-label="Rechercher un titre">
+        <button class="icon-btn" data-fermer type="button" aria-label="Fermer">${icon('close')}</button>
+      </div>
+      <div class="recherche-liste" id="rechercheListe"></div>
+      <div class="recherche-pied">
+        <span>Vous ne trouvez pas ce que vous cherchez ?</span>
+        <a href="/idees.html">Suggérez une œuvre !</a>
+      </div>
+    </div>`;
+  document.body.appendChild(boite);
+
+  boite.addEventListener('click', (e) => {
+    if (e.target.closest('[data-fermer]')) fermerRecherche();
+  });
+
+  const champ = boite.querySelector('#rechercheInput');
+  champ.addEventListener('input', () => majResultats(champ.value));
+
+  champ.addEventListener('keydown', (e) => {
+    const liens = [...boite.querySelectorAll('.resultat')];
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!liens.length) return;
+      choixRecherche = (choixRecherche + (e.key === 'ArrowDown' ? 1 : -1) + liens.length) % liens.length;
+      liens.forEach((l, i) => l.classList.toggle('on', i === choixRecherche));
+      liens[choixRecherche].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      if (liens[choixRecherche]) {
+        e.preventDefault();
+        liens[choixRecherche].click();
+      }
+    }
+  });
+
+  return boite;
+}
+
+async function majResultats(q) {
+  const liste = document.getElementById('rechercheListe');
+  const terme = q.trim();
+  choixRecherche = 0;
+
+  if (!terme) {
+    liste.innerHTML = '<p class="recherche-vide">Tape le nom d’un titre, ou un genre.</p>';
+    return;
+  }
+
+  let tous;
+  try {
+    tous = await chargerCatalogue();
+  } catch {
+    liste.innerHTML = '<p class="recherche-vide">Le catalogue n’a pas pu être chargé.</p>';
+    return;
+  }
+
+  // La saisie a pu changer pendant le chargement : on ne remplace la liste que
+  // si le terme affiche est toujours celui qu'on vient de traiter.
+  const champ = document.getElementById('rechercheInput');
+  if (champ && champ.value.trim() !== terme) return;
+
+  const trouves = trouver(tous, terme);
+  liste.innerHTML = trouves.length
+    ? trouves.map((it, i) => resultatHtml(it, i === 0)).join('')
+    : `<p class="recherche-vide">Rien pour « ${esc(terme)} ».</p>`;
+}
+
+function ouvrirRecherche() {
+  const boite = boiteRecherche();
+  boite.hidden = false;
+  rechercheOuverte = true;
+  document.body.classList.add('sans-defilement');
+  const champ = document.getElementById('rechercheInput');
+  champ.value = '';
+  majResultats('');
+  champ.focus();
+}
+
+function fermerRecherche() {
+  const boite = document.getElementById('rechercheBoite');
+  if (!boite) return;
+  boite.hidden = true;
+  rechercheOuverte = false;
+  document.body.classList.remove('sans-defilement');
+}
+
+function brancherRecherche() {
+  document.getElementById('rechercheBtn')?.addEventListener('click', ouvrirRecherche);
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      rechercheOuverte ? fermerRecherche() : ouvrirRecherche();
+    } else if (e.key === 'Escape' && rechercheOuverte) {
+      fermerRecherche();
+    }
+  });
 }

@@ -68,6 +68,7 @@ function resumeCard(item) {
         <div class="resume-ep">S${ep.season} E${ep.number}${
           ep.title ? ' - ' + esc(ep.title) : ''
         }</div>
+        <div class="langue">${esc(item.langue || 'VOSTFR')}</div>
       </div>
     </a>`;
 }
@@ -146,6 +147,7 @@ function heroSlide(item, index, tous) {
             <span class="hero-badge">${esc(SINGULAR[item.type])}${
               item.genre ? ' · ' + esc(item.genre) : ''
             }</span>
+            <span class="hero-badge">${esc(item.langue || 'VOSTFR')}</span>
           </div>
           <p>${esc(item.description || '')}</p>
           <div class="hero-actions">
@@ -153,12 +155,14 @@ function heroSlide(item, index, tous) {
               ${icon(item.type === 'jeu' ? 'download' : 'play')}
               ${item.type === 'jeu' ? 'Télécharger' : 'Regarder'}
             </a>
-            <button class="btn btn-icone ${item.favorite ? 'on' : ''}" data-fav="${item.id}"
-                    type="button" aria-pressed="${item.favorite}"
-                    aria-label="${item.favorite ? 'Retirer de ma liste' : 'Ajouter à ma liste'}"
-                    title="${item.favorite ? 'Dans ma liste' : 'Ma liste'}">
-              ${icon('heart')}
-            </button>
+            <div class="groupe-icones">
+              <button class="btn btn-icone ${item.favorite ? 'on' : ''}" data-fav="${item.id}"
+                      type="button" aria-pressed="${item.favorite}"
+                      aria-label="${item.favorite ? 'Retirer de ma liste' : 'Ajouter à ma liste'}"
+                      title="${item.favorite ? 'Dans ma liste' : 'Ma liste'}">
+                ${icon('heart')}
+              </button>
+            </div>
           </div>
           ${tous.length > 1 ? heroVignettes(tous, index) : ''}
         </div>

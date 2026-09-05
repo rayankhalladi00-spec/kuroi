@@ -346,6 +346,12 @@ function contentForm(c = {}) {
       <input id="cPoster" type="hidden" value="${v('poster_url')}">
     </div>
     <div class="field">
+      <label for="cLangue">Langue</label>
+      <input id="cLangue" type="text" value="${v('langue')}" maxlength="20"
+             placeholder="VOSTFR">
+      <small class="hint">Affichée sur la fiche et sur les épisodes. Vide, ce sera VOSTFR.</small>
+    </div>
+    <div class="field">
       <label for="cBackdrop">Image en paysage — carrousel d'accueil</label>
       <input id="cBackdrop" type="url" value="${v('backdrop_url')}"
              placeholder="https://… (format large, 16/9)">
@@ -431,6 +437,7 @@ function readContentForm() {
     description: document.getElementById('cDesc').value,
     poster_url: document.getElementById('cPoster').value,
     backdrop_url: document.getElementById('cBackdrop').value.trim(),
+    langue: document.getElementById('cLangue').value.trim(),
     video_url: document.getElementById('cVideo').value,
     external_url: document.getElementById('cExt').value,
     year: document.getElementById('cYear').value,

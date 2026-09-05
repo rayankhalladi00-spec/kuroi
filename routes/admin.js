@@ -183,6 +183,7 @@ const CONTENT_FIELDS = [
   'external_url',
   'year',
   'genre',
+  'langue',
   'featured',
   'sort_order',
 ];

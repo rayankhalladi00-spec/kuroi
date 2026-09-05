@@ -60,6 +60,9 @@ CREATE TABLE IF NOT EXISTS content (
   external_url TEXT,
   year         INTEGER,
   genre        TEXT,
+  -- Langue de la version proposee : VOSTFR, VF, ou ce qu'on veut. Vide, on
+  -- affiche VOSTFR, qui est le cas courant du catalogue.
+  langue       TEXT,
   featured     INTEGER NOT NULL DEFAULT 0,
   sort_order   INTEGER NOT NULL DEFAULT 0,
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
@@ -243,6 +246,7 @@ ensureColumn('users', 'avatar', 'TEXT');
 ensureColumn('episode_comments', 'parent_id', 'INTEGER REFERENCES episode_comments(id)');
 ensureColumn('content', 'backdrop_url', 'TEXT');
 ensureColumn('episodes', 'thumbnail_url', 'TEXT');
+ensureColumn('content', 'langue', 'TEXT');
 
 // Cet index porte sur une colonne ajoutee par migration : il doit donc etre
 // cree apres elle, et non dans le bloc de creation initial, qui s'execute

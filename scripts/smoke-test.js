@@ -957,6 +957,13 @@ async function waitForServer(proc) {
       check('l’image en paysage est conservée',
         fiche.backdrop_url === 'https://exemple.test/paysage.jpg', String(fiche.backdrop_url));
 
+      // Langue : reglable par titre, vide cote base, VOSTFR a l'affichage.
+      check('la langue est vide tant qu’on n’en met pas',
+        fiche.langue === null || fiche.langue === undefined, String(fiche.langue));
+      await admin('PUT', '/api/admin/content/' + serie, { langue: 'VF' });
+      check('la langue est enregistrée',
+        (await alice('GET', '/api/content/' + serie)).data.item.langue === 'VF');
+
       let cat = (await alice('GET', '/api/content')).data;
       check('le catalogue expose un carrousel', Array.isArray(cat.carrousel),
         typeof cat.carrousel);
@@ -1141,6 +1148,9 @@ async function waitForServer(proc) {
           check('la colonne de l’image d’épisode est ajoutée',
             apres.prepare('PRAGMA table_info(episodes)').all()
               .some((c) => c.name === 'thumbnail_url'));
+          check('la colonne de langue est ajoutée',
+            apres.prepare('PRAGMA table_info(content)').all()
+              .some((c) => c.name === 'langue'));
           apres.close();
         }
       } finally {

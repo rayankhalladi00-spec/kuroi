@@ -484,7 +484,10 @@ function episodeCarte(e) {
           ${e.watched ? `<span class="ep-vu">${icon('check')}</span>` : ''}
         </span>
         <span class="ep-legende">
-          <span class="ep-title">E${e.number}${e.title ? ' · ' + esc(e.title) : ''}</span>
+          <span class="ep-texte">
+            <span class="ep-title">E${e.number}${e.title ? ' · ' + esc(e.title) : ''}</span>
+            <span class="langue">${esc(item.langue || 'VOSTFR')}</span>
+          </span>
           <span class="ep-note">${badgeNote(e)}</span>
         </span>
       </button>

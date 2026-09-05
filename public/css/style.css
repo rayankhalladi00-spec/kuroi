@@ -253,7 +253,7 @@ h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; }
   color: var(--text);
   font: inherit;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease),
@@ -334,6 +334,40 @@ h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; }
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 .hero-actions { display: flex; gap: 11px; flex-wrap: wrap; align-items: center; }
+
+/* Le bouton principal du héros est une pastille, plus marquée que les autres. */
+.hero-actions .btn-primary {
+  border-radius: 99px;
+  padding: 12px 26px;
+  font-size: 15px;
+}
+
+/* Les boutons d'icône vivent dans un cadre commun, separes d'un trait. */
+.groupe-icones {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-elev);
+}
+.groupe-icones .btn-icone {
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.groupe-icones .btn-icone + .btn-icone { border-left: 1px solid var(--line); }
+
+/* Mention de langue : discrete, en majuscules, sous le titre. */
+.langue {
+  display: inline-block;
+  margin-top: 5px;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.ep-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 .btn-icone {
   width: 44px;
@@ -1796,7 +1830,7 @@ span.com-avatar {
 .hero-badge {
   display: inline-block;
   padding: 4px 11px;
-  margin-bottom: 16px;
+  margin: 0 7px 16px 0;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg) 55%, transparent);

@@ -44,9 +44,12 @@ function playerHtml(url, kind) {
   // le reste est ouvert, la version mobile de ces lecteurs ayant besoin des
   // formulaires, du verrouillage d'orientation et des fenetres surgissantes.
   //
-  // Il avait ete retire en cherchant pourquoi un lecteur echouait sur iPhone.
-  // Ce n'etait pas lui : le meme lecteur echoue aussi ouvert seul dans un
-  // onglet, sans iframe ni code de ce site.
+  // Il avait ete retire en cherchant pourquoi les lecteurs echouaient sur
+  // iPhone. Ce n'etait pas lui, et le raisonnement qui l'avait innocente etait
+  // faux lui aussi : on avait conclu « ca echoue meme en onglet direct, donc
+  // ce site n'y est pour rien », alors que le lien de secours portait
+  // rel="noreferrer" et coupait le Referer de ce nouvel onglet. La vraie cause
+  // etait la politique de referer, des deux cotes. Voir plus bas et server.js.
   //
   // Pas d'attribut « allow » en revanche. Le preciser REMPLACE les permissions
   // par defaut : tout ce qui n'y figure pas devient interdit. Il ne protegeait

@@ -1112,9 +1112,14 @@ async function waitForServer(proc) {
       // rel="noreferrer" sur le lien de secours produisait le meme effet, mais
       // pour l'ouverture en nouvel onglet : d'ou le « meme en nouvel onglet, ca
       // ne marche pas ». noopener seul protege autant sans couper le Referer.
-      const watchJs = fs.readFileSync(
-        path.join(__dirname, '..', 'public', 'js', 'watch.js'), 'utf8'
-      );
+      // Les lignes de commentaire sont retirees : elles parlent justement de
+      // rel="noreferrer" pour expliquer pourquoi il ne faut pas le remettre,
+      // et le test se declenchait sur son propre avertissement.
+      const watchJs = fs
+        .readFileSync(path.join(__dirname, '..', 'public', 'js', 'watch.js'), 'utf8')
+        .split(/\r?\n/)
+        .filter((l) => !l.trim().startsWith('//'))
+        .join(' ');
       check('le lien « ouvrir dans un nouvel onglet » ne coupe pas le referer',
         !/rel="[^"]*noreferrer/.test(watchJs),
         (watchJs.match(/rel="[^"]*"/g) || []).join(' '));

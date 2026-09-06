@@ -1106,6 +1106,57 @@ async function waitForServer(proc) {
       );
     }
 
+    console.log('\n— Import de lecteurs en masse');
+    {
+      // Seule la lecture du fichier est testee ici : elle est pure, donc sure
+      // a verifier. L'ecriture en base est couverte par les essais manuels du
+      // script, qui refuse d'ecraser un lecteur deja pose sans --remplacer.
+      const { lireLigne } = require('./appliquer-lecteurs');
+
+      const cas = [
+        ['S01E02 https://x.tld/a', 1, 2, 'les deux notations S01E02'],
+        ['s3e12  https://x.tld/a', 3, 12, 'la notation en minuscules'],
+        ['2x07   https://x.tld/a', 2, 7, 'la notation 2x07'],
+        ['S1 E4  https://x.tld/a', 1, 4, 'la notation avec espace'],
+      ];
+      for (const [texte, saison, numero, quoi] of cas) {
+        const lu = lireLigne(texte, 1);
+        check(`${quoi} est comprise`,
+          lu && lu.saison === saison && lu.numero === numero, JSON.stringify(lu));
+      }
+
+      check('un simple numéro prend la saison par défaut',
+        lireLigne('7 https://x.tld/a', 4)?.saison === 4);
+
+      check('une ligne vide est ignorée', lireLigne('   ', 1) === null);
+      check('un commentaire est ignoré', lireLigne('# une remarque', 1) === null);
+      check('une ligne sans numéro est refusée',
+        !!lireLigne('juste du texte', 1)?.erreur);
+      check('un numéro sans lecteur est refusé',
+        !!lireLigne('S01E01', 1)?.erreur);
+
+      // Le fichier complet : declaration de la serie, code d'integration, et
+      // elevation de http en https comme dans le panneau d'administration.
+      const { lireFichier } = require('./appliquer-lecteurs');
+      const f = path.join(DATA_DIR, 'lecteurs-test.txt');
+      fs.writeFileSync(f, [
+        '# serie: Ma Série',
+        'S01E01 <iframe src="https://x.tld/un" allowfullscreen></iframe>',
+        'S01E02 http://x.tld/deux',
+        'illisible',
+      ].join('\n'));
+      const lu = lireFichier(f, 1);
+      check('la série se déclare en tête du fichier', lu.serie === 'Ma Série', String(lu.serie));
+      check('le code d’intégration donne l’adresse seule',
+        lu.entrees[0].url === 'https://x.tld/un', lu.entrees[0].url);
+      check('http est élevé en https',
+        lu.entrees[1].url === 'https://x.tld/deux', lu.entrees[1].url);
+      check('la ligne illisible est signalée, pas avalée',
+        lu.refusees.length === 1 && lu.refusees[0].ligne === 4,
+        JSON.stringify(lu.refusees));
+      fs.rmSync(f, { force: true });
+    }
+
     console.log('\n— Migration du schéma');
     {
       // La base de production est ancienne : elle n'a que les tables et les

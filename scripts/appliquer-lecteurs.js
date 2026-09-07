@@ -16,6 +16,14 @@
 // Un meme fichier peut enchainer plusieurs series : chaque « # serie: » ouvre
 // une section, et les lignes qui suivent lui appartiennent.
 //
+// Un episode peut recevoir plusieurs lecteurs : il suffit de repeter son
+// numero. Le premier devient le lecteur principal, les suivants des lecteurs
+// de secours, et le visiteur bascule de l'un a l'autre depuis la page de
+// lecture quand celui affiche ne repond plus.
+//
+//   S01E01 https://exemple.tld/lecteur/1        (principal)
+//   S01E01 https://autre.tld/lecteur/1          (secours)
+//
 // Options :
 //   --serie "Titre"   la serie visee, si le fichier ne la declare pas
 //   --saison N        saison par defaut pour les lignes sans saison (1)
@@ -134,6 +142,26 @@ function trouverSerie(titre) {
   throw new Error(`Aucun titre ne correspond à « ${titre} ».`);
 }
 
+// Un episode peut recevoir plusieurs lecteurs : le premier devient le lecteur
+// principal, les suivants des lecteurs de secours entre lesquels le visiteur
+// bascule quand l'un d'eux ne repond plus.
+//
+// Sans ce regroupement, la deuxieme ligne d'un meme episode se contentait de
+// constater que le principal etait deja pose, et le lecteur de secours etait
+// perdu en silence — un fichier de trois lecteurs par episode n'en aurait
+// installe qu'un seul.
+function grouper(entrees) {
+  const groupes = new Map();
+  for (const e of entrees) {
+    const cle = `${e.saison}x${e.numero}`;
+    if (!groupes.has(cle)) groupes.set(cle, { saison: e.saison, numero: e.numero, urls: [] });
+    const g = groupes.get(cle);
+    // La meme adresse deux fois n'ajoute pas un choix, elle en ajoute l'illusion.
+    if (!g.urls.includes(e.url)) g.urls.push(e.url);
+  }
+  return [...groupes.values()];
+}
+
 function appliquer(serie, entrees, options) {
   const trouverEp = db.prepare(
     'SELECT id, season, number, video_url FROM episodes WHERE content_id = ? AND season = ? AND number = ?'
@@ -151,36 +179,43 @@ function appliquer(serie, entrees, options) {
 
   const bilan = { poses: 0, inchanges: 0, absents: [], sources: 0 };
 
-  for (const e of entrees) {
-    const ep = trouverEp.get(serie.id, e.saison, e.numero);
+  for (const g of grouper(entrees)) {
+    const ep = trouverEp.get(serie.id, g.saison, g.numero);
     if (!ep) {
-      bilan.absents.push(`S${e.saison}E${e.numero}`);
+      bilan.absents.push(`S${g.saison}E${g.numero}`);
       continue;
     }
 
-    if (options.source) {
-      if (sourceExiste.get(ep.id, e.url)) {
+    // --source : tout le fichier part en secours, le lecteur principal n'est
+    // pas touche. Sinon le premier lecteur de l'episode devient le principal
+    // et les suivants ses secours.
+    const principal = options.source ? null : g.urls[0];
+    const secours = options.source ? g.urls : g.urls.slice(1);
+
+    if (principal !== null) {
+      if (ep.video_url === principal) {
+        bilan.inchanges++;
+      } else if (ep.video_url && !options.remplacer) {
+        // Sans --remplacer, un lecteur deja en place est respecte : on ne veut
+        // pas ecraser un choix fait a la main par un import lance deux fois.
+        bilan.inchanges++;
+      } else {
+        if (!options.essai) poser.run(principal, ep.id);
+        bilan.poses++;
+        // Les secours se comparent au principal reellement en place.
+        ep.video_url = principal;
+      }
+    }
+
+    for (const url of secours) {
+      if (url === ep.video_url) continue; // deja le principal, pas un secours
+      if (sourceExiste.get(ep.id, url)) {
         bilan.inchanges++;
         continue;
       }
-      if (!options.essai)
-        ajouterSource.run(ep.id, null, e.url, rangSuivant.get(ep.id).rang);
+      if (!options.essai) ajouterSource.run(ep.id, null, url, rangSuivant.get(ep.id).rang);
       bilan.sources++;
-      continue;
     }
-
-    // Sans --remplacer, un lecteur deja en place est respecte : on ne veut pas
-    // ecraser un choix fait a la main par un import lance deux fois.
-    if (ep.video_url && !options.remplacer) {
-      bilan.inchanges++;
-      continue;
-    }
-    if (ep.video_url === e.url) {
-      bilan.inchanges++;
-      continue;
-    }
-    if (!options.essai) poser.run(e.url, ep.id);
-    bilan.poses++;
   }
 
   return bilan;
@@ -277,22 +312,24 @@ function main() {
     cumul.sources += bilan.sources;
     cumul.absents += bilan.absents.length;
 
-    const pose = options.source ? bilan.sources : bilan.poses;
+    const pose = bilan.poses + bilan.sources;
     console.log(
-      `  ${serie.title.padEnd(38).slice(0, 38)} ${String(pose).padStart(4)} posé(s)  ` +
+      `  ${serie.title.padEnd(38).slice(0, 38)} ${String(bilan.poses).padStart(4)} principal(aux)  ` +
+        `${String(bilan.sources).padStart(4)} secours  ` +
         `${String(bilan.inchanges).padStart(4)} inchangé(s)` +
         (bilan.absents.length ? `  ${bilan.absents.length} absent(s) du catalogue` : '')
     );
 
     if (!options.essai && pose) {
       audit(null, 'import_lecteurs', `content#${serie.id}`,
-        `${serie.title} : ${pose} lecteur(s) depuis ${path.basename(fichier)}`);
+        `${serie.title} : ${bilan.poses} principal(aux) et ${bilan.sources} secours ` +
+          `depuis ${path.basename(fichier)}`);
     }
   }
 
   console.log(options.essai ? '\n--- essai, rien n’a été écrit ---' : '');
   console.log(
-    `Total : ${options.source ? cumul.sources : cumul.poses} posé(s), ` +
+    `Total : ${cumul.poses} lecteur(s) principal(aux), ${cumul.sources} de secours, ` +
       `${cumul.inchanges} inchangé(s)` +
       (cumul.absents ? `, ${cumul.absents} épisode(s) absent(s) du catalogue` : '')
   );
@@ -300,4 +337,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { lireLigne, lireFichier, trouverSerie, appliquer };
+module.exports = { lireLigne, lireFichier, trouverSerie, appliquer, grouper };

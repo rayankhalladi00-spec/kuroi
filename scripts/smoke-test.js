@@ -1290,6 +1290,30 @@ async function waitForServer(proc) {
         anonyme.sections.length === 1 && anonyme.sections[0].serie === null,
         JSON.stringify(anonyme.sections[0] && anonyme.sections[0].serie));
       fs.rmSync(g, { force: true });
+
+      // Plusieurs lecteurs pour un meme episode : le premier est le principal,
+      // les suivants des secours entre lesquels le visiteur bascule. Avant ce
+      // regroupement, la deuxieme ligne d'un episode constatait seulement que
+      // le principal etait deja pose : le secours etait perdu sans un mot.
+      const { grouper } = require('./appliquer-lecteurs');
+      const groupes = grouper([
+        { saison: 1, numero: 1, url: 'https://a.tld/1' },
+        { saison: 1, numero: 1, url: 'https://b.tld/1' },
+        { saison: 1, numero: 2, url: 'https://a.tld/2' },
+        { saison: 1, numero: 1, url: 'https://a.tld/1' },
+      ]);
+      check('les lignes d’un même épisode se regroupent',
+        groupes.length === 2, String(groupes.length));
+      check('le premier lecteur reste en tête',
+        groupes[0].urls[0] === 'https://a.tld/1', groupes[0].urls[0]);
+      check('les lecteurs suivants sont conservés comme secours',
+        groupes[0].urls.length === 2, JSON.stringify(groupes[0].urls));
+      check('la même adresse répétée n’ajoute pas un faux choix',
+        groupes[0].urls.filter((u) => u === 'https://a.tld/1').length === 1,
+        JSON.stringify(groupes[0].urls));
+      check('un autre épisode garde ses propres lecteurs',
+        groupes[1].numero === 2 && groupes[1].urls.length === 1,
+        JSON.stringify(groupes[1]));
     }
 
     console.log('\n— Import des vignettes d’épisode');

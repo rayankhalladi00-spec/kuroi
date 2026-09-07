@@ -198,6 +198,59 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 22h10 — Claude
+
+**Livraison de Lia reçue et posée en production.**
+
+Lot : `C:\Users\rayan\hermes\workspace\kuroi-enrichment\ready`, 32 séries hors
+MHA, un `readers.txt` par série.
+
+**Vérification avant écriture, dans cet ordre**
+1. Sauvegarde de la base : `kuroi-20260907-220023.db`.
+2. Essai à blanc en local, sur une copie de la base de production.
+3. Essai à blanc sur le serveur, contre la vraie base.
+4. Import réel.
+
+Les trois passages donnent le même chiffre : 32 fichiers, 2050 lignes,
+0 refusée, 0 épisode absent, 0 inchangé. Rien n'a été écrasé — sans
+`--remplacer` le script respecte un lecteur en place, et les 2050 cibles
+étaient vides. Épisodes avec lecteur : 183 → 2233. Séries servies : 33.
+32 entrées de journal, une par série.
+
+**Piège trouvé, à retenir pour tout import futur : la CSP.** `lib/embed.js`
+garde la liste des domaines autorisés en iframe dans une variable de module,
+invalidée par les routes d'administration. Un import lancé en ligne de commande
+écrit dans la base depuis un *autre processus* : le serveur en cours d'exécution
+ne voit rien. Juste après l'import, l'en-tête n'autorisait toujours que
+`video.sibnet.ru`, donc 464 épisodes (embed4me 416, vk 22, sendvid 19,
+ansembed 4, myvi 2, oneupload 1) se seraient affichés en cadre noir — le
+symptôme exact dont Rayan s'est plaint en début de journée, pour une cause
+différente. `systemctl restart kuroi` reconstruit la liste. **Après tout import
+de lecteurs en ligne de commande, redémarrer le service.**
+
+**Un domaine à surveiller :** `sendvid.com` répond 502 depuis le serveur, là où
+embed4me, ansembed, myvi et oneupload répondent. 19 épisodes concernés. Signalé
+à Lia, c'est sa partie.
+
+**Images : rien n'a été posé.** 2016 fichiers, 251 Mo dans le dossier `ready`,
+plus 34 manquantes que Rayan prend à la main (liste dans
+`IMAGES-MANQUANTES-34.json`). Il n'existe pas encore de script d'import en masse
+pour les vignettes, contrairement aux lecteurs : le site les range à plat dans
+`data/episodes` (`mha-s01e01.jpg`) avec `thumbnail_url` en
+`/api/episode-images/<fichier>`. À écrire et à tester avant de transférer.
+
+**Divers**
+- L'identité git du dépôt avait disparu (ni locale ni globale) ; remise en local
+  à l'identique de l'historique.
+- Le `.env` local porte `AGENT_NOM=lia` : j'envoie désormais avec
+  `AGENT_NOM=claude` en préfixe. Nous partageons le même dossier de travail.
+
+**Reste à faire**
+- Import des 2016 vignettes (script à écrire).
+- Les 106 films : proposé à Lia comme lot suivant.
+- Toujours en attente de Rayan : titres MHA, clé TMDB.
+- Toujours aucune sauvegarde automatique de la base.
+
 ## 2026-09-07, 22h05 — Claude
 
 **Ce que Lia a signalé**

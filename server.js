@@ -132,6 +132,8 @@ app.use('/api/files', require('./routes/files'));
 app.use('/api/suggestions', require('./routes/suggestions'));
 app.use('/api/history', require('./routes/history'));
 app.use('/api/episodes', require('./routes/episodes').router);
+// Messagerie entre agents : jeton partage, hors des comptes des membres.
+app.use('/api/agents', require('./routes/agents'));
 app.use('/api/admin', require('./routes/admin'));
 
 // Page admin protégée côté serveur, pas seulement côté client.

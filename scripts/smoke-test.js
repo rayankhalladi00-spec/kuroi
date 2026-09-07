@@ -79,6 +79,7 @@ async function waitForServer(proc) {
         // La suite fait bien plus de 10 connexions légitimes ; le seuil réel
         // est vérifié pour de vrai en fin de parcours.
         LOGIN_RATE_LIMIT: '60',
+        AGENT_TOKEN: 'jeton-de-test-au-moins-seize-caracteres',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     }
@@ -1155,6 +1156,76 @@ async function waitForServer(proc) {
         lu.refusees.length === 1 && lu.refusees[0].ligne === 4,
         JSON.stringify(lu.refusees));
       fs.rmSync(f, { force: true });
+    }
+
+    console.log('\n— Messagerie entre agents');
+    {
+      const JETON = 'jeton-de-test-au-moins-seize-caracteres';
+      const appel = (chemin, options = {}, jeton = JETON) =>
+        fetch(BASE + chemin, {
+          ...options,
+          headers: {
+            ...(jeton ? { Authorization: 'Bearer ' + jeton } : {}),
+            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+          },
+        });
+
+      // Le canal doit etre ferme a tout ce qui n'est pas le jeton — y compris a
+      // un administrateur connecte. Ces echanges ne regardent pas les membres.
+      check('sans jeton, la messagerie refuse',
+        (await appel('/api/agents/messages', {}, null)).status === 401);
+      check('un mauvais jeton est refusé',
+        (await appel('/api/agents/messages', {}, 'mauvais-jeton-de-la-bonne-taille')).status === 401);
+      check('une session d’administrateur ne suffit pas',
+        (await admin('GET', '/api/agents/messages')).status === 401);
+      check('une session de membre ne suffit pas',
+        (await alice('GET', '/api/agents/messages')).status === 401);
+
+      // Un jeton de la mauvaise longueur ne doit pas faire tomber la comparaison
+      // a duree constante, qui exige deux tampons de meme taille.
+      check('un jeton trop court est refusé sans planter',
+        (await appel('/api/agents/messages', {}, 'court')).status === 401);
+
+      let r = await appel('/api/agents/messages');
+      check('avec le jeton, la messagerie répond', r.status === 200);
+      check('elle est vide au départ', (await r.json()).messages.length === 0);
+
+      r = await appel('/api/agents/messages', {
+        method: 'POST',
+        body: JSON.stringify({ agent: 'claude', body: 'Premier message.' }),
+      });
+      const premier = (await r.json()).message;
+      check('un message est publié', r.status === 200 && premier.agent === 'claude',
+        JSON.stringify(premier));
+
+      await appel('/api/agents/messages', {
+        method: 'POST',
+        body: JSON.stringify({ agent: 'lia', body: 'Bien reçu.' }),
+      });
+
+      const lu = await (await appel('/api/agents/messages')).json();
+      check('les messages se lisent dans l’ordre',
+        lu.messages.length === 2 && lu.messages[0].agent === 'claude' &&
+          lu.messages[1].agent === 'lia',
+        lu.messages.map((m) => m.agent).join(','));
+      check('le dernier identifiant est renvoyé', lu.dernier === lu.messages[1].id);
+
+      // « depuis » sert a ne relire que ce qui a suivi : c'est ainsi qu'un agent
+      // reprend la conversation sans tout recharger.
+      const suite = await (await appel('/api/agents/messages?depuis=' + premier.id)).json();
+      check('« depuis » ne renvoie que la suite',
+        suite.messages.length === 1 && suite.messages[0].agent === 'lia');
+
+      check('un message vide est refusé',
+        (await appel('/api/agents/messages', {
+          method: 'POST',
+          body: JSON.stringify({ agent: 'claude', body: '   ' }),
+        })).status === 400);
+      check('un message sans agent est refusé',
+        (await appel('/api/agents/messages', {
+          method: 'POST',
+          body: JSON.stringify({ body: 'sans nom' }),
+        })).status === 400);
     }
 
     console.log('\n— Migration du schéma');

@@ -195,6 +195,18 @@ CREATE TABLE IF NOT EXISTS comment_likes (
   PRIMARY KEY (comment_id, user_id)
 );
 
+-- Messagerie entre les agents qui travaillent sur le site.
+--
+-- Elle ne passe pas par les comptes des membres : un agent n'est pas un
+-- visiteur, il s'authentifie par un jeton partage, et personne d'autre ne doit
+-- lire ces echanges. D'ou une table a part, et des routes a part.
+CREATE TABLE IF NOT EXISTS agent_messages (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent      TEXT NOT NULL,
+  body       TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now'))
+);
+
 -- Favoris : « ma liste » de chaque membre.
 CREATE TABLE IF NOT EXISTS favorites (
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -227,6 +239,7 @@ CREATE INDEX IF NOT EXISTS idx_watched_content ON watched(user_id, content_id);
 CREATE INDEX IF NOT EXISTS idx_content_type ON content(type);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires);
+CREATE INDEX IF NOT EXISTS idx_agent_messages ON agent_messages(id DESC);
 `);
 
 // Migrations : CREATE TABLE IF NOT EXISTS ne touche pas une table existante.

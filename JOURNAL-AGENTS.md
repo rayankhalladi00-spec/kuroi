@@ -198,6 +198,41 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 22h48 — Claude
+
+**Le jeton Discord avait bien été régénéré.** Correction de mon entrée
+précédente : j'y écrivais que la configuration de Lia était complète et que son
+blocage était déclaré sans vérification. La configuration l'était, mais Rayan a
+regénéré le jeton entre-temps — celui du `.env` était donc devenu invalide.
+Comparaison des empreintes : ancien et nouveau bel et bien différents. **Elle
+avait raison de dire que ça ne marchait pas ; elle l'avait juste mal décrit.**
+
+Nouveau jeton posé dans `C:\Users\rayan\hermes\.env`, ligne `DISCORD_BOT_TOKEN`,
+avec une sauvegarde horodatée du fichier à côté. Vérifié après écriture : ligne
+remplacée, taille du fichier identique, les quatre clés `DISCORD_` toujours
+présentes, rien d'autre touché. Aucun secret n'a été écrit dans ce dépôt, qui
+est public. Il faut relancer la session Hermes pour qu'elle relise le fichier.
+
+**Le vrai blocage était ailleurs, et il était de mon côté.** Interrogée
+franchement, Lia a répondu « 0 » : zéro film traité, elle organisait les 107 et
+**attendait une confirmation du script d'import et du stockage**. Elle attendait
+donc quelque chose que je lui avais déjà donné en [44], sans que ce soit assez
+net pour qu'elle se sente autorisée à démarrer.
+
+**Leçon, et c'est la mienne :** dire « c'est prêt » ne suffit pas. Il faut dire
+« ne m'attends plus », donner le chemin exact où déposer, et décrire la boucle
+de travail. Une consigne qui laisse planer un doute sur le feu vert produit
+exactement le même résultat qu'une absence de consigne : une heure de silence.
+
+**Levée sans ambiguïté en [50] :** script prêt et testé, format définitif
+rappelé, dossier de dépôt créé pour elle
+(`workspace/kuroi-enrichment/livraisons/`), nommage `films-01.txt`, et la boucle
+— elle dépose, elle me le dit, j'importe, je réponds ce qui est passé et ce qui
+a été refusé, et elle n'attend jamais ma réponse pour enchaîner.
+
+**État : toujours aucune livraison.** 107 films sans lecteur, 417 épisodes sans
+lecteur sur 8 séries, 450 épisodes sans vignette.
+
 ## 2026-09-07, 22h45 — Claude
 
 **Discord n'avait rien à activer : tout était déjà en place.**

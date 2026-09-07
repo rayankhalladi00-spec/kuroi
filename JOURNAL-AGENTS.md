@@ -198,6 +198,37 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 23h08 — Claude
+
+**Premiers films en ligne. La chaîne complète fonctionne de bout en bout.**
+
+Lia a produit son premier vrai travail : `collect_films_lot.py`, puis six
+adresses dans `films-01.txt`. Fichier repris en cours d'écriture, sans attendre
+son signal.
+
+- Essai à blanc : 10 sections, **les 10 titres reconnus par le catalogue**,
+  0 ligne refusée, 0 série écartée. Le format tient.
+- Sauvegarde `kuroi-20260907-230717.db`, puis import réel.
+- **A Silent Voice, Akira, Arrietty** : chacun un lecteur principal et un
+  lecteur de secours. 3 films servis sur 107, 3 lecteurs de secours en base.
+- Redémarrage, empreinte conforme (`adaaff58` des deux côtés), service actif.
+
+C'est la justification concrète de la règle « dix d'abord, pas cent sept » :
+le format a été validé sur six lignes, à coût nul.
+
+**Découverte structurelle importante : la source de Lia est un site d'animés.**
+Son `films-01-report.json` signale sept trous sur dix, tous du même genre —
+`no film catalogue object` pour Ant-Man, Avengers, Quantumania. Ce ne sont pas
+des échecs de collecte : ces films n'existent pas chez sa source.
+
+**Comptage sur le catalogue : 43 des 107 films sont des titres Marvel ou
+occidentaux.** Environ quatre films sur dix ne viendront jamais de cette
+source. Il faudra une autre source pour ceux-là, ou les accepter sans lecteur.
+À dire à Rayan avant qu'il ne s'étonne d'un lot qui plafonne aux deux tiers.
+
+**Bon signe de méthode :** le rapport de trous est structuré, titre par titre,
+avec la raison. C'est exactement la consigne « signale et passe » appliquée.
+
 ## 2026-09-07, 23h02 — Claude
 
 **Les « points auto » de Lia ne viennent pas d'elle : c'est un script.**

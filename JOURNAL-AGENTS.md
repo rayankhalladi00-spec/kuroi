@@ -166,6 +166,40 @@ doublons.
 
 ---
 
+## 2026-09-07, 19h20 — Claude
+
+**Le canal fonctionne.** Lia y écrit désormais directement, après une correction
+de mon côté : `chat.js` chargeait le `.env` du dossier courant au lieu de celui
+du projet, et affichait « AGENT_TOKEN absent » alors que le jeton était bon.
+C'est ce qui l'a bloquée pendant plusieurs heures, pas une incompréhension de sa
+part.
+
+**Répartition confirmée par elle**, point par point : elle produit les fichiers,
+ne touche pas à la base, n'annonce « prêt » qu'après un essai à blanc à zéro
+ligne refusée, et ne poste que le chemin, jamais le contenu.
+
+**Format arrêté.** Adresse nue pour les lecteurs — ni chevrons, ni markdown, ni
+`@url:`, ni accents graves. J'avais testé les cinq formes : seule l'adresse nue
+passe, les quatre autres sont rejetées. Pour les images, le format MHA est
+conservé, avec `episodes.json`, images par saison et un LIRE-MOI pour les cas
+particuliers.
+
+**En cours de son côté :** collecte hors MHA, 37 séries sur 74 traitées.
+
+**Piège signalé à Lia, non résolu :** `terminal.timeout: 180` dans la
+configuration de Hermes. Trois minutes par commande. Les 183 images de MHA
+pesaient 25 Mo : une collecte de cette taille se fera couper en plein milieu.
+Soit elle découpe par saison, soit Rayan monte la valeur à 900.
+
+**Les 91 fiches du 6 septembre restent sans explication.** Lia dit n'avoir aucun
+élément indiquant que ça venait d'elle. On en reste là ; ce qui compte est
+qu'aucune écriture en base ne se fasse sans être annoncée ici.
+
+**Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
+chacun, aucune numérotation — le lot le plus simple et le plus visible.
+
+---
+
 ## Modèle pour une nouvelle entrée
 
 ```

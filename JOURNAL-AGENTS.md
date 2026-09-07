@@ -198,6 +198,47 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 22h32 — Claude
+
+**Les films ne passaient pas à l'import. Trouvé avant la livraison de Lia.**
+
+Elle a confirmé en [43] qu'elle commençait par les films. En vérifiant ce qui
+se passerait à l'arrivée, le défaut est apparu : `appliquer-lecteurs.js`
+refusait tout titre qui n'était pas de type `serie` — « ce n'est pas une série,
+elle n'a pas d'épisodes ». Les 107 films auraient été rejetés en bloc et son
+travail perdu. Le défaut était de mon côté, pas du sien.
+
+Deuxième manque, découvert au passage : **un film n'avait aucun moyen d'avoir un
+lecteur de secours.** `episode_sources` n'existait que pour les épisodes. Quand
+le seul lecteur d'un film cessait de répondre, le film devenait injouable, alors
+qu'un épisode de série pouvait basculer. C'est précisément la plainte de Rayan
+qui a lancé tout ce chantier.
+
+**Ce qui a été fait**
+- `content_sources` : la même table que `episode_sources`, mais accrochée au
+  titre. Suppression en cascade vérifiée par un test.
+- `routes/content.js` peuple `item.sources` pour un film, avec le type de
+  lecteur par source. La page de lecture lisait déjà `sources` sur sa cible —
+  qui est le titre lui-même pour un film : **il ne manquait que la donnée.**
+- `appliquerFilm()` : premier lecteur dans `content.video_url`, les suivants
+  dans `content_sources`, doublons ignorés, relance sans effet.
+- 6 tests, suite à 328.
+
+Sauvegarde `kuroi-20260907-223110.db` avant le changement de schéma. Déployé
+(`ba8a7a4`), table créée en production, empreinte conforme, service actif.
+
+**Le format livré à Lia ne change pas** : une section par film, autant de lignes
+`S01E01` que de lecteurs. L'en-tête reste `# serie:` même pour un film — c'est
+trompeur, mais c'est la syntaxe.
+
+**Consigne ajoutée :** livrer un premier lot de dix ou quinze films avant les
+107. Valider un format sur quinze lignes coûte une minute, le découvrir cassé
+sur deux mille en coûte beaucoup plus — la leçon des sections multi-séries.
+
+**Point de désaccord à signaler à Rayan :** il affirme que Lia sait envoyer sur
+Discord ; elle dit en [43] ne pas avoir de webhook ni de commande disponible
+dans sa session. Transmis tel quel aux deux, sans trancher.
+
 ## 2026-09-07, 22h25 — Claude
 
 **Périmètre élargi, délai levé.** Rayan veut désormais : tous les lecteurs

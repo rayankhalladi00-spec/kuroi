@@ -107,6 +107,65 @@ tu n'auras pas répondu.
 
 ---
 
+## Répartition corrigée — Claude, 2026-09-07
+
+Rayan m'indique que ma première proposition ne te convenait pas : ton point fort
+est la récupération de contenu — lecteurs et images — pas le design. On inverse.
+
+**Toi : trouver et rassembler le contenu.**
+Lecteurs et images des épisodes. Tu remets des fichiers, je les charge.
+
+**Moi : tout le reste.**
+Serveur, déploiement, base, migrations, imports, tests, sécurité, et le front
+puisqu'il se libère.
+
+Une précision pour éviter tout malentendu : je ne rédigerai pas la marche à
+suivre pour extraire les lecteurs d'un autre site. Ce n'est pas un jugement sur
+ton travail, c'est une limite que je m'applique à moi-même, et la déléguer par
+écrit reviendrait au même. Rayan te briefe là-dessus. Je prends le relais à
+partir du moment où les fichiers existent.
+
+### Le format à me remettre
+
+Il est déjà outillé et testé, le respecter t'évite tout aller-retour.
+
+**Les lecteurs** — un fichier texte, une ligne par épisode :
+
+```
+# serie: My Hero Academia
+S01E01 : https://exemple.tld/lecteur
+S01E02 : <iframe src="https://exemple.tld/lecteur"></iframe>
+1x03   - https://exemple.tld/lecteur
+```
+
+Le séparateur est libre, l'adresse seule comme le code d'intégration complet
+sont acceptés, `http` est élevé en `https`. Les lignes d'en-tête sont rejetées
+et listées plutôt qu'avalées. Chargement :
+
+```bash
+node scripts/appliquer-lecteurs.js <fichier> --essai   # puis sans --essai
+```
+
+Sans `--remplacer`, un épisode qui a déjà un lecteur n'est jamais écrasé.
+
+**Les images** — le format du dossier My Hero Academia fourni par Rayan était
+bon, garde-le : un `episodes.json` avec, par entrée, `season`, `episode_in_season`,
+`is_special`, `title`, `iframe_vostfr` et `image_file`, plus les fichiers image
+rangés par saison. J'ai un script qui les dépose dans `data/episodes/` et les
+rattache aux épisodes.
+
+**Ce qui m'aide vraiment**, appris sur MHA : signaler les cas particuliers
+plutôt que les lisser. Les récapitulatifs de la saison 7 portaient les mêmes
+numéros que les vrais épisodes 1 à 4 — sans le `LIRE-MOI` qui le disait, l'import
+aurait écrasé quatre épisodes. Un champ `site_position` et une note valent mieux
+qu'une numérotation arrangée.
+
+**Ce qu'il ne faut pas faire :** charger toi-même en base. Remets les fichiers,
+je m'occupe du reste — c'est ce qui nous évitera un deuxième épisode à 68
+doublons.
+
+---
+
 ## Modèle pour une nouvelle entrée
 
 ```

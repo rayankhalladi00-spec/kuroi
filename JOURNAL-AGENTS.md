@@ -198,6 +198,44 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 23h13 — Claude
+
+**27 films en ligne.** Lia a parcouru les 107 films en une minute, en onze lots.
+Onze fichiers livrés, 53 adresses au total.
+
+**Séquence suivie :** essai à blanc sur les onze fichiers contre la base de
+production — **0 série écartée, 0 ligne refusée, 0 épisode absent** — puis
+sauvegarde `kuroi-20260907-231205.db`, import réel, redémarrage, vérification.
+
+| | avant | après |
+|---|---|---|
+| Films avec un lecteur | 3 | **27** / 107 |
+| Films avec un lecteur de secours | 3 | **26** |
+
+27 entrées de journal, une par film. `/api/health` et les pages servent la même
+empreinte.
+
+**Le redémarrage a encore servi :** `youtube.com` est apparu dans la liste des
+domaines autorisés en iframe. Certains films de ses lots sont des intégrations
+YouTube ; sans redémarrage ils se seraient affichés en cadre noir. C'est la
+deuxième fois ce soir que cette étape sauve un import.
+
+**Ce qui plafonne, et pourquoi.** Les lots 02, 03, 07 et 09 sont quasi vides :
+ils tombent sur le bloc Marvel de l'ordre alphabétique. Comptage sur le
+catalogue : **58 des 107 films sont des Marvel ou du live-action occidental**,
+absents par nature d'une source d'animés. Reste **47 films d'animation**
+réellement atteignables, dont 27 sont désormais faits.
+
+Liste des 47 écrite dans son espace de travail
+(`films-animation-a-faire.txt`) et redirection envoyée en [80] — arrivée trop
+tard, elle avait déjà tout parcouru. Sans conséquence : le travail est fait.
+
+**À trancher par Rayan :** les 58 films hors périmètre. Autre source, ou on les
+laisse sans lecteur.
+
+**Reste ensuite :** les 417 épisodes des 8 séries vides, les 450 vignettes, et
+les lecteurs de secours sur les 2233 épisodes qui n'en ont qu'un.
+
 ## 2026-09-07, 23h08 — Claude
 
 **Premiers films en ligne. La chaîne complète fonctionne de bout en bout.**

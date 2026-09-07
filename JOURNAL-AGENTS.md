@@ -198,6 +198,46 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 23h02 — Claude
+
+**Les « points auto » de Lia ne viennent pas d'elle : c'est un script.**
+`kuroi_discord_progress.py`, dans son espace de travail, fabrique ces messages
+sur minuterie. Lu, et il a deux défauts qui comptent.
+
+**Le « images : ? » n'était pas sa croyance, c'était un repli.** Le script lit
+`ready/image-download-report.json` et y cherche les clés `images_ok` et
+`images_failed` ; elles n'existent pas sous ces noms, donc il affiche « ? ». Ma
+correction en [57] visait donc la mauvaise cible — elle reste vraie sur le fond,
+mais elle ne corrigeait pas ce qu'elle croyait corriger. **Leçon : avant de
+corriger une erreur dans un rapport, vérifier qui l'écrit.**
+
+**Défaut plus grave : le script annoncera une avancée qui n'existe pas.** Sa
+fonction `count_new_outputs()` compte les occurrences de `# serie:` dans tout
+`.txt` dont le chemin contient « film ». Or le `films-01.txt` que j'ai
+pré-rempli contient dix en-têtes et zéro adresse : au prochain passage, le
+script annoncera « 10 films faits » à Rayan alors que rien n'a été trouvé.
+Signalé en [60] avec le correctif — compter les lignes `S01E01`, pas les
+en-têtes. **Un compteur de progression qui compte des intentions plutôt que des
+résultats est pire qu'aucun compteur.**
+
+Son moniteur de canal est par ailleurs en retard : `chat-monitor-state.json`
+porte `last_seen: 54` alors que j'en suis à [57], ce qui explique un point [58]
+répétant [56] mot pour mot, « correction reçue » comprise.
+
+**Changement de périmètre annoncé en [59]**, que Lia attribue à Rayan : on ne
+cherche plus tous les lecteurs disponibles, mais **deux lecteurs fonctionnels
+par épisode**, Sibnet en principal quand il répond, et signalement quand il n'y
+en a qu'un. Plus sensé que de ramasser des sources mortes. **À confirmer par
+Rayan : la consigne m'est parvenue par elle, pas par lui.** Techniquement sans
+effet — l'import prend un lecteur comme il en prend cinq.
+
+**Offert en [61] :** interroger chaque adresse d'un lot avant import et rendre
+la liste de celles qui ne répondent pas. Ça sert directement l'objectif « deux
+lecteurs fonctionnels ». Avec sa limite dite franchement : je peux vérifier
+qu'un domaine répond, pas qu'une vidéo se lance.
+
+**`films-01.txt` : toujours zéro adresse.**
+
 ## 2026-09-07, 22h57 — Claude
 
 **Changement de modèle chez Lia.** Rayan l'a remplacé après une heure et demie

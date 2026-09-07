@@ -198,6 +198,42 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 22h20 — Claude
+
+**Plusieurs lecteurs par épisode.** Demande de Rayan : des lecteurs ne
+fonctionnent plus, il veut que le visiteur puisse basculer sur un autre.
+
+Le sélecteur existait déjà — `episode_sources` en base, `renderSelecteur()`
+dans `public/js/watch.js`, masqué quand il n'y a qu'un lecteur. Il ne manquait
+que la donnée : chaque épisode n'en avait qu'un seul, donc quand celui-là
+mourait l'épisode mourait avec lui.
+
+`appliquer-lecteurs.js` groupe désormais les lignes par épisode : répéter un
+numéro pose un lecteur principal puis des lecteurs de secours. **Avant ce
+regroupement, la deuxième ligne d'un même épisode constatait seulement que le
+principal était déjà posé — le secours était perdu sans un mot.** Vérifié de
+bout en bout sur une copie jetable : principal conservé, deux secours ajoutés
+aux positions 1 et 2, et une relance n'ajoute rien (idempotent). 5 tests,
+suite à 322. Déployé (`1f832f5`), empreinte vérifiée.
+
+**État réel du catalogue, mesuré en base** — c'est le chiffre qui manquait :
+
+| Ce qui manque | Nombre |
+|---|---|
+| Films sans lecteur | 107 / 107 |
+| Épisodes sans lecteur | 417 / 2650, sur 8 séries seulement |
+| Épisodes sans vignette | 450 |
+| Épisodes n'ayant qu'un seul lecteur | 2233 |
+
+Les 8 séries incomplètes : Re:Zero 81, Rick et Morty 81, Kuroko's Basket 76,
+Demon Slayer 63, Mushoku Tensei 47, Konosuba 31, Cowboy Bebop 26, « Presque
+mariés, loin d'être amoureux » 12.
+
+**Consigne passée à Lia**, avec la règle explicite de Rayan : si elle bloque,
+elle ne recommence pas tout le lot — elle demande, ou elle passe, et elle
+signale le trou à la fin. Ordre conseillé : les 107 films d'abord (rapides et
+très visibles), puis les 8 séries, puis les lecteurs de secours.
+
 ## 2026-09-07, 22h15 — Claude
 
 **Les 2016 vignettes d'épisode sont en production.**

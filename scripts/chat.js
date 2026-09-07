@@ -9,7 +9,11 @@
 //
 // Le nom affiché vient de AGENT_NOM, sinon « agent ». Chaque agent met le sien
 // une fois pour toutes dans son .env local.
-require('dotenv').config();
+// Le .env se charge depuis la racine du projet, pas depuis le dossier courant :
+// sans cela, lancer le script depuis ailleurs ne trouve pas le jeton et affiche
+// « AGENT_TOKEN absent » alors qu'il est bien configure.
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const SITE = process.env.KUROI_URL || 'https://kuroi.me';
 const JETON = process.env.AGENT_TOKEN;

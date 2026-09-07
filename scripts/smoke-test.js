@@ -1292,6 +1292,62 @@ async function waitForServer(proc) {
       fs.rmSync(g, { force: true });
     }
 
+    console.log('\n— Import des vignettes d’épisode');
+    {
+      const {
+        slug,
+        nomFichier,
+        nomDeSerie,
+        lireDossierSerie,
+        estDossierSerie,
+      } = require('./appliquer-vignettes');
+
+      check('le nom de fichier dépose les accents',
+        slug('Haikyū!!') === 'haikyu', slug('Haikyū!!'));
+      check('deux séries distinctes ne partagent pas un nom de fichier',
+        slug('Blue Box') !== slug('Blue Lock'),
+        slug('Blue Box') + ' / ' + slug('Blue Lock'));
+      check('saison et épisode sont sur deux chiffres',
+        nomFichier('bleach', 1, 7, '.JPG') === 'bleach-s01e07.jpg',
+        nomFichier('bleach', 1, 7, '.JPG'));
+
+      const racine = fs.mkdtempSync(path.join(os.tmpdir(), 'kuroi-vignettes-'));
+      const serie = path.join(racine, '041-Bleach');
+      fs.mkdirSync(path.join(serie, 'Saison-01'), { recursive: true });
+      fs.mkdirSync(path.join(serie, 'Saison-02'), { recursive: true });
+
+      fs.writeFileSync(path.join(serie, 'Saison-01', 'S01E02.jpg'), 'x');
+      fs.writeFileSync(path.join(serie, 'Saison-01', 'S01E01.jpg'), 'x');
+      fs.writeFileSync(path.join(serie, 'Saison-02', 'S02E01.jpg'), 'x');
+      // Le fichier contredit son dossier. Devine-t-on ? Non : une vignette
+      // posee sur le mauvais episode ne se remarque pas, contrairement a une
+      // vignette absente. On refuse et on le dit.
+      fs.writeFileSync(path.join(serie, 'Saison-02', 'S03E09.jpg'), 'x');
+      fs.writeFileSync(path.join(serie, 'Saison-01', 'LIRE-MOI.txt'), 'note');
+
+      const lu = lireDossierSerie(serie);
+      check('les images des saisons sont toutes lues',
+        lu.images.length === 3, String(lu.images.length));
+      check('elles sortent dans l’ordre des épisodes',
+        lu.images.map((i) => `S${i.saison}E${i.numero}`).join(' ') === 'S1E1 S1E2 S2E1',
+        lu.images.map((i) => `S${i.saison}E${i.numero}`).join(' '));
+      check('une image qui contredit son dossier est refusée, pas devinée',
+        lu.refusees.length === 1 && /S03E09/.test(lu.refusees[0].fichier),
+        JSON.stringify(lu.refusees));
+
+      check('le dossier d’une série est reconnu', estDossierSerie(serie) === true);
+      check('le dossier parent n’est pas pris pour une série',
+        estDossierSerie(racine) === false);
+
+      check('le nom vient du dossier, préfixe retiré',
+        nomDeSerie(serie) === 'Bleach', nomDeSerie(serie));
+      fs.writeFileSync(path.join(serie, 'readers.txt'), '# serie: Bleach VF\nS01E01 https://x.tld/1');
+      check('l’en-tête de readers.txt prime sur le nom du dossier',
+        nomDeSerie(serie) === 'Bleach VF', nomDeSerie(serie));
+
+      fs.rmSync(racine, { recursive: true, force: true });
+    }
+
     console.log('\n— Migration du schéma');
     {
       // La base de production est ancienne : elle n'a que les tables et les

@@ -1243,15 +1243,53 @@ async function waitForServer(proc) {
         'illisible',
       ].join('\n'));
       const lu = lireFichier(f, 1);
-      check('la série se déclare en tête du fichier', lu.serie === 'Ma Série', String(lu.serie));
+      check('la série se déclare en tête du fichier',
+        lu.sections.length === 1 && lu.sections[0].serie === 'Ma Série',
+        JSON.stringify(lu.sections.map((x) => x.serie)));
+      const uneSerie = lu.sections[0].entrees;
       check('le code d’intégration donne l’adresse seule',
-        lu.entrees[0].url === 'https://x.tld/un', lu.entrees[0].url);
+        uneSerie[0].url === 'https://x.tld/un', uneSerie[0].url);
       check('http est élevé en https',
-        lu.entrees[1].url === 'https://x.tld/deux', lu.entrees[1].url);
+        uneSerie[1].url === 'https://x.tld/deux', uneSerie[1].url);
       check('la ligne illisible est signalée, pas avalée',
         lu.refusees.length === 1 && lu.refusees[0].ligne === 4,
         JSON.stringify(lu.refusees));
       fs.rmSync(f, { force: true });
+
+      // Plusieurs series dans un meme fichier. Avant correction, le nom etait
+      // ecrase a chaque en-tete pendant que les lignes s accumulaient : tout
+      // finissait sur la derniere serie declaree, ecrasant les episodes des
+      // autres sans rien signaler. Un fichier de trente series aurait pose ses
+      // deux mille lignes au meme endroit.
+      const g = path.join(DATA_DIR, 'lecteurs-multi.txt');
+      fs.writeFileSync(g, [
+        '# serie: Bleach',
+        'S01E01 https://x.tld/bleach-1',
+        'S01E02 https://x.tld/bleach-2',
+        '',
+        '# serie: Naruto',
+        'S01E01 https://x.tld/naruto-1',
+      ].join('\n'));
+      const multi = lireFichier(g, 1);
+      check('deux séries donnent deux sections', multi.sections.length === 2,
+        String(multi.sections.length));
+      check('chaque section porte son propre nom',
+        multi.sections[0].serie === 'Bleach' && multi.sections[1].serie === 'Naruto',
+        multi.sections.map((x) => x.serie).join(', '));
+      check('les lignes restent avec leur série',
+        multi.sections[0].entrees.length === 2 &&
+          multi.sections[1].entrees.length === 1 &&
+          multi.sections[0].entrees[0].url === 'https://x.tld/bleach-1' &&
+          multi.sections[1].entrees[0].url === 'https://x.tld/naruto-1',
+        JSON.stringify(multi.sections.map((x) => x.entrees.map((e) => e.url))));
+
+      // Sans en-tete, une section anonyme recueille tout : --serie la nommera.
+      fs.writeFileSync(g, 'S01E01 https://x.tld/seul');
+      const anonyme = lireFichier(g, 1);
+      check('un fichier sans en-tête donne une section anonyme',
+        anonyme.sections.length === 1 && anonyme.sections[0].serie === null,
+        JSON.stringify(anonyme.sections[0] && anonyme.sections[0].serie));
+      fs.rmSync(g, { force: true });
     }
 
     console.log('\n— Migration du schéma');

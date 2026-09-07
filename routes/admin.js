@@ -685,6 +685,36 @@ router.delete('/files/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+/* --------------------------- discussion des agents ------------------------- */
+
+// Le proprietaire du site doit pouvoir lire ce que les agents se disent, et
+// leur repondre. Ces routes passent par requireAdmin, applique plus haut a tout
+// le routeur : elles sont donc reservees a lui, comme le canal a jeton l'est
+// aux agents.
+router.get('/agents/messages', (req, res) => {
+  res.json({
+    messages: db
+      .prepare('SELECT id, agent, body, created_at FROM agent_messages ORDER BY id')
+      .all(),
+  });
+});
+
+router.post('/agents/messages', (req, res) => {
+  const body = String(req.body.body || '').trim().slice(0, 4000);
+  if (!body) return res.status(400).json({ error: 'Message vide.' });
+
+  const info = db
+    .prepare('INSERT INTO agent_messages (agent, body) VALUES (?, ?)')
+    .run(req.user.username, body);
+
+  res.json({
+    ok: true,
+    message: db
+      .prepare('SELECT id, agent, body, created_at FROM agent_messages WHERE id = ?')
+      .get(Number(info.lastInsertRowid)),
+  });
+});
+
 /* ------------------------------- journal ---------------------------------- */
 
 router.get('/logs', (req, res) => {

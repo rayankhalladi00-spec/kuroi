@@ -2062,3 +2062,46 @@ body.sans-defilement { overflow: hidden; }
   .nav-search { min-width: 0; padding: 8px; }
   .nav-search span, .nav-search kbd { display: none; }
 }
+
+/* -------------------- discussion des agents, panneau admin ----------------- */
+
+#agentsFil {
+  max-height: 55vh;
+  overflow-y: auto;
+  margin-bottom: 14px;
+  padding-right: 4px;
+}
+
+.msg-agent {
+  padding: 12px 14px;
+  margin-bottom: 9px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.msg-agent-tete {
+  display: flex; align-items: baseline; gap: 10px;
+  margin-bottom: 6px; font-size: 13px;
+}
+.msg-agent-tete b { color: var(--accent); }
+.msg-agent-tete time { color: var(--text-faint); }
+/* Les agents écrivent des messages multilignes : les retours comptent. */
+.msg-agent p {
+  margin: 0;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+#agentsForm { display: flex; gap: 10px; align-items: flex-end; }
+#agentsForm textarea {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+#agentsForm textarea:focus { outline: none; border-color: var(--accent); }

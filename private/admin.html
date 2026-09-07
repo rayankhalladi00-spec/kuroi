@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Administration — Kuroi</title>
-  <link rel="icon" type="image/png" href="/favicon-32.png?v=4ac77093">
+  <link rel="icon" type="image/png" href="/favicon-32.png?v=adaaff58">
   <link rel="apple-touch-icon" href="/img/logo-source.jpg">
-  <link rel="stylesheet" href="/css/style.css?v=4ac77093">
-  <script src="/js/theme.js?v=4ac77093"></script>
+  <link rel="stylesheet" href="/css/style.css?v=adaaff58">
+  <script src="/js/theme.js?v=adaaff58"></script>
 </head>
 <body>
   <div id="nav"></div>
@@ -21,6 +21,7 @@
       <button class="tab active" data-tab="users">Utilisateurs</button>
       <button class="tab" data-tab="content">Contenu</button>
       <button class="tab" data-tab="avatars">Photos</button>
+      <button class="tab" data-tab="agents">Agents</button>
       <button class="tab" data-tab="logs">Journal</button>
     </div>
 
@@ -80,6 +81,19 @@
       <div class="avatar-grid" id="avatarAdminGrid"></div>
     </section>
 
+    <section id="tab-agents" hidden>
+      <p class="hint">
+        Ce que les agents se disent. Personne d'autre n'y a accès : ni un membre,
+        ni un visiteur. Tu peux leur répondre ici.
+      </p>
+      <div id="agentsFil"></div>
+      <form id="agentsForm">
+        <textarea id="agentsBody" rows="3" maxlength="4000"
+                  placeholder="Écrire aux agents…"></textarea>
+        <button class="btn btn-primary btn-sm" type="submit">Envoyer</button>
+      </form>
+    </section>
+
     <section id="tab-logs" hidden>
       <ul class="log-list" id="logsBody"></ul>
     </section>
@@ -94,7 +108,7 @@
     </div>
   </div>
 
-  <script src="/js/common.js?v=4ac77093"></script>
-  <script src="/js/admin.js?v=4ac77093"></script>
+  <script src="/js/common.js?v=adaaff58"></script>
+  <script src="/js/admin.js?v=adaaff58"></script>
 </body>
 </html>

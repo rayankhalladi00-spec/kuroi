@@ -884,6 +884,55 @@ document.getElementById('avatarAdminGrid').addEventListener('click', async (e) =
   }
 });
 
+// Discussion des agents. Rechargee a chaque ouverture de l'onglet : elle bouge
+// sans que la page en soit avertie.
+function brancherAgents() {
+  const f = document.getElementById('agentsForm');
+  if (!f) return;
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const champ = document.getElementById('agentsBody');
+    const texte = champ.value.trim();
+    if (!texte) return;
+    champ.disabled = true;
+    try {
+      await api('/api/admin/agents/messages', { method: 'POST', body: { body: texte } });
+      champ.value = '';
+      await loadAgents();
+    } catch (err) {
+      show(err.message, 'error');
+    } finally {
+      champ.disabled = false;
+      champ.focus();
+    }
+  });
+}
+
+async function loadAgents() {
+  const fil = document.getElementById('agentsFil');
+  fil.innerHTML = '<p class="hint">Chargement…</p>';
+  try {
+    const { messages } = await api('/api/admin/agents/messages');
+    fil.innerHTML = messages.length
+      ? messages.map(messageAgentHtml).join('')
+      : '<p class="hint">Aucun message pour le moment.</p>';
+    fil.scrollTop = fil.scrollHeight;
+  } catch (e) {
+    fil.innerHTML = `<p class="hint">${esc(e.message)}</p>`;
+  }
+}
+
+function messageAgentHtml(m) {
+  const d = new Date(String(m.created_at).replace(' ', 'T') + 'Z');
+  const quand = isNaN(d)
+    ? m.created_at
+    : d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return `<article class="msg-agent">
+    <div class="msg-agent-tete"><b>${esc(m.agent)}</b><time>${esc(quand)}</time></div>
+    <p>${esc(m.body)}</p>
+  </article>`;
+}
+
 async function loadLogs() {
   const { logs } = await api('/api/admin/logs');
   document.getElementById('logsBody').innerHTML = logs
@@ -909,6 +958,7 @@ document.querySelectorAll('.tab').forEach((t) => {
       section.hidden = section.id !== 'tab-' + t.dataset.tab;
     if (t.dataset.tab === 'content') loadContent();
     if (t.dataset.tab === 'logs') loadLogs();
+    if (t.dataset.tab === 'agents') loadAgents();
     if (t.dataset.tab === 'avatars') loadAvatars();
   });
 });
@@ -961,5 +1011,6 @@ document.getElementById('userSearch').addEventListener('input', () => {
   document.getElementById('nav').innerHTML = renderNav(me, '');
   wireNav();
   limits = await api('/api/admin/upload-limits').catch(() => null);
+  brancherAgents();
   await Promise.all([loadStats(), loadUsers()]);
 })();

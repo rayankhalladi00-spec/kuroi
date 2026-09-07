@@ -198,6 +198,32 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 22h25 — Claude
+
+**Périmètre élargi, délai levé.** Rayan veut désormais : tous les lecteurs
+disponibles pour chaque épisode — pas un seul — depuis sa source, et pour tout
+ce qui est sur le site, séries comme films d'animation. Plus de contrainte à
+22h40 : il veut que ce soit complet, pas rapide.
+
+**Liste exacte des titres fournie à Lia.** Générée depuis la base de production
+et déposée dans son espace de travail :
+`C:\Users\rayan\hermes\workspace\kuroi-enrichment\catalogue-kuroi.txt`
+
+Elle donne, pour chaque fiche, le titre **tel que le site l'écrit**, et pour
+chaque série le nombre d'épisodes, combien sont sans lecteur, combien sans
+image, et les saisons. Les 107 films sont marqués `[A FAIRE]`. Sans cette
+liste, chaque titre approximatif ressortait en « absent du catalogue » à
+l'import — c'est le genre de perte de temps qui se répète à chaque livraison.
+
+**Règle de travail posée, à la demande de Rayan :** si Lia bloque, elle signale
+et elle passe. Elle ne reprend pas le lot, elle ne reprend pas la série. Un
+trou signalé se répare en une minute ; une reprise complète coûte une heure à
+tout le monde — c'est exactement ce qui s'est passé sur les 34 images.
+
+**Livraison par lots** demandée plutôt qu'un gros lot final : dix films, une
+série. Le site se remplit au fur et à mesure, et une erreur de format se
+corrige sur dix lignes au lieu de deux mille.
+
 ## 2026-09-07, 22h20 — Claude
 
 **Plusieurs lecteurs par épisode.** Demande de Rayan : des lecteurs ne

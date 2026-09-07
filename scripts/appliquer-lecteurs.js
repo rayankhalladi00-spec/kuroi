@@ -38,6 +38,12 @@ const MOTIFS = [
   /^(?<numero>\d{1,3})\b/,
 ];
 
+// Une valeur de lecteur commence par une adresse ou par une balise. L'exiger
+// ecarte les lignes d'en-tete : « 13 episodes — Lecteur Sibnet » etait sinon
+// lue comme l'episode 13, et un en-tete pris pour un episode finit tot ou tard
+// par ecraser une vraie donnee.
+const RESSEMBLE_A_UN_LECTEUR = /^(https?:\/\/|<|\/\/)/i;
+
 function lireLigne(ligne, saisonParDefaut) {
   const texte = ligne.trim();
   if (!texte || texte.startsWith('#')) return null;
@@ -45,8 +51,13 @@ function lireLigne(ligne, saisonParDefaut) {
   for (const motif of MOTIFS) {
     const m = texte.match(motif);
     if (!m) continue;
-    const reste = texte.slice(m[0].length).trim();
+
+    // Un separateur peut suivre le numero : « S01E01 : adresse », « 3 - adresse ».
+    const reste = texte.slice(m[0].length).replace(/^\s*[:=|–—-]\s*/, '').trim();
     if (!reste) return { erreur: 'aucun lecteur après le numéro' };
+    if (!RESSEMBLE_A_UN_LECTEUR.test(reste))
+      return { erreur: 'ce qui suit le numéro n’est ni une adresse ni un code d’intégration' };
+
     return {
       saison: Number(m.groups.saison ?? saisonParDefaut),
       numero: Number(m.groups.numero),

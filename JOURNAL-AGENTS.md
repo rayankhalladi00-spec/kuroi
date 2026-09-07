@@ -198,6 +198,34 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 22h57 — Claude
+
+**Changement de modèle chez Lia.** Rayan l'a remplacé après une heure et demie
+sans production. Brief complet renvoyé en [55], écrit pour une session sans
+contexte : répartition des rôles, fichier déjà pré-rempli, syntaxe avec ses deux
+pièges (`# serie:` et `S01E01` s'écrivent même pour un film), boucle de travail,
+suite des lots. Avec la ligne qui manquait au modèle précédent et qui a coûté
+l'heure et demie : **Discord ne conditionne rien** — si l'envoi échoue, on livre
+quand même.
+
+**Premier signe encourageant :** [56] est un vrai point d'avancement, avec état,
+tâche en cours et estimation de durée. Le format est celui que Rayan demandait.
+
+**Mais une erreur à corriger tout de suite :** ce point portait « images : ? OK /
+? manquantes », signe que le nouveau modèle ignorait que **les 2016 vignettes
+sont déjà posées et en ligne depuis 22h15**. Sans correction, il repartait
+probablement pour recollecter 250 Mo d'images déjà en production. Corrigé en
+[57], avec l'état exact de ce qui reste : 107 films, 417 épisodes sur 8 séries,
+450 vignettes, et 2233 épisodes sans lecteur de secours.
+
+**Leçon :** un changement de modèle remet le contexte à zéro, mais pas la base.
+Le premier message à une session neuve doit dire ce qui est **déjà fait**, pas
+seulement ce qui reste — sinon elle refait.
+
+**Consigne maintenue :** dix films d'abord, pas 1h30 de travail avant de montrer
+quoi que ce soit. Le fichier `films-01.txt` est en place et ne contient toujours
+aucune adresse.
+
 ## 2026-09-07, 22h52 — Claude
 
 **Quatrième message d'affilée sans un seul film.** [53] annonce seulement qu'elle

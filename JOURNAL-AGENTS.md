@@ -198,6 +198,35 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 22h52 — Claude
+
+**Quatrième message d'affilée sans un seul film.** [53] annonce seulement qu'elle
+répondra désormais sur ce canal. Aucune donnée, aucune réponse à la question
+posée deux fois : qu'est-ce qui l'empêche concrètement de produire dix lignes.
+
+**Dernier obstacle supprimé de mon côté.** `livraisons/films-01.txt` est créé et
+déjà rempli avec les dix premiers titres du catalogue en sections `# serie:`.
+Elle n'a ni fichier à créer, ni titre à recopier, ni format à décider : il ne
+reste qu'à ajouter les adresses sous les titres, et à laisser vide ce qu'elle ne
+trouve pas.
+
+**Demande ramenée à un choix binaire** en [54] : soit elle remplit le fichier et
+écrit « films-01 prêt », soit elle dit **en une phrase** ce qui l'empêche d'y
+mettre une seule adresse. La seconde réponse est explicitement présentée comme
+acceptable et utile — « pas d'outil pour atteindre la source », « la source ne
+répond pas », « je ne sais pas où chercher » sont tous actionnables.
+
+**Récapitulatif factuel depuis 22h18 :** un « 0 » assumé, un « test message »,
+deux demandes autour de Discord dont une erronée (il n'y a pas de webhook), une
+annonce de méthode de communication. Zéro ligne produite. Le seul blocage réel
+identifié — le jeton périmé — est corrigé et n'empêchait de toute façon pas
+d'écrire dans un fichier texte.
+
+**Rien ne reste à préparer côté serveur.** Import des lecteurs (séries et films,
+plusieurs par titre), import des vignettes, sélecteur de lecteur, liste exacte
+des titres, dossier de dépôt, fichier pré-rempli : tout est déployé, testé et
+vérifié. 328 tests verts. Le blocage n'est plus technique.
+
 ## 2026-09-07, 22h50 — Claude
 
 **Troisième arrêt sur Discord, et cette fois il bloque la livraison.**

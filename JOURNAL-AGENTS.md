@@ -198,6 +198,38 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 22h45 — Claude
+
+**Discord n'avait rien à activer : tout était déjà en place.**
+
+Lia a déclaré en [43] ne pas avoir de commande ni de webhook Discord. Rayan a
+alors cherché puis transmis des identifiants pour débloquer la situation.
+Vérification faite dans son installation Hermes : les quatre clés Discord
+étaient déjà renseignées dans `.env`, et la surface `discord` déjà déclarée
+dans `config.yaml` au même titre que telegram, slack ou signal.
+
+**La preuve que la connexion vivait :** le fichier `channel_directory.json` de
+Hermes avait été rafraîchi à 22h33 — six minutes *après* le message où elle
+annonçait ne pas avoir Discord. Il contenait 25 salons du serveur et une
+conversation privée. La liaison fonctionnait pendant qu'elle la déclarait
+absente.
+
+**Ce que ça coûte, et la règle qui en découle :** signaler un blocage est la
+bonne pratique, et Rayan l'a explicitement demandée. Mais *déclarer* bloqué ce
+qu'on n'a pas vérifié fait pire que le silence : ça envoie quelqu'un chercher
+une solution à un problème qui n'existe pas. **Avant d'annoncer qu'un outil
+manque, on regarde sa propre configuration.** Transmis à Lia en [47], avec le
+chemin exact du fichier pour qu'elle vérifie elle-même.
+
+Aucune modification faite : rien à changer. Aucun secret ne figure ici ni
+ailleurs dans le dépôt — il est public.
+
+**État à cette heure : toujours aucune livraison.** Lia est silencieuse depuis
+son [43], il y a plus de quarante minutes, avec pour seul signe un « test
+message ». Le catalogue n'a pas bougé : 107 films sans lecteur, 417 épisodes
+sans lecteur sur 8 séries, 450 épisodes sans vignette. Tout est prêt côté
+serveur et attend un fichier.
+
 ## 2026-09-07, 22h32 — Claude
 
 **Les films ne passaient pas à l'import. Trouvé avant la livraison de Lia.**

@@ -198,6 +198,46 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 22h05 — Claude
+
+**Ce que Lia a signalé**
+- Sa génération est prête, mais elle ne peut pas lancer l'essai à blanc : son
+  Node local est en 22.23.2 alors que le projet exige `>=23.4` (`node:sqlite`).
+  Elle cherchait un contournement plutôt que de livrer.
+
+**Ce que je lui ai répondu**
+- L'essai à blanc n'est pas son travail, c'est le mien : il touche la base de
+  production, il tourne ici (Node 24.18.1 en local, 24.20.0 sur le serveur),
+  après sauvegarde. Elle n'a jamais eu besoin d'une base ni de Node 24 : elle
+  livre le fichier, je passe `--essai`, je lis le bilan, je n'écris que si
+  l'essai est propre.
+- Format rappelé : un `.txt`, une section par série (`# serie: Titre exact`),
+  une ligne par épisode. Le multi-séries dans un seul fichier est géré depuis
+  la correction d'hier — chaque en-tête ouvre sa propre section.
+- Titres d'épisodes dans un fichier à part : 42 séries ont des épisodes absents
+  du catalogue, je peux les créer avant de poser les lecteurs, sinon ces lignes
+  ressortiront en « absent du catalogue ».
+- Les 2020 images attendent que Rayan monte `terminal.timeout` à 900 dans la
+  configuration de Hermes. Les lecteurs d'abord.
+
+**Collision de noms sur le canal — à retenir**
+- Le `.env` de `C:\Users\rayan\kuroi` porte désormais `AGENT_NOM=lia`. Nous
+  travaillons donc dans le même dossier local. Mon message [28] est parti sous
+  le nom de Lia ; j'ai posté [29] pour corriger l'attribution.
+- Règle de mon côté : `AGENT_NOM=claude node scripts/chat.js "…"` à chaque
+  envoi, sans toucher au réglage de Lia.
+- Le vrai risque n'est pas le nom, c'est le dossier partagé : je commite et je
+  pousse depuis là, et `deploy.sh` met en production ce qui est poussé. Une
+  modification simultanée d'un fichier suivi partirait en production sans que
+  personne ne l'ait décidé. Demandé à Lia de ne pas toucher aux fichiers suivis
+  sans le dire. L'arbre de travail était propre au moment de cette entrée.
+
+**Reste à faire / attention**
+- Livraison de Lia toujours attendue (32 séries, ~2050 lecteurs).
+- Trois décisions en attente de Rayan : titres MHA, clé TMDB, `terminal.timeout`.
+- Toujours aucune sauvegarde automatique de la base ; seulement des instantanés
+  manuels dans `data/sauvegardes/`.
+
 ---
 
 ## Modèle pour une nouvelle entrée

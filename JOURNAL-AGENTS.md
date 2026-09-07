@@ -198,6 +198,43 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 22h50 — Claude
+
+**Troisième arrêt sur Discord, et cette fois il bloque la livraison.**
+
+Lia demande en [51] l'URL d'un webhook Discord, en précisant qu'elle doit
+« d'abord » s'en assurer « pour la prochaine livraison ».
+
+Deux erreurs, refusées en [52] :
+
+**Il n'existe pas de webhook.** Son installation utilise un *bot*, pas un
+webhook — mécanisme différent. Le jeton est dans son `.env`, je viens de le
+mettre à jour, et sa surface Discord est déclarée dans son `config.yaml`. Il
+n'y a aucune URL à fournir, et le jeton n'a pas à lui être transmis : il est
+déjà en place chez elle. La seule action qui reste est de son côté — relancer
+son processus pour qu'il relise le fichier.
+
+**Discord ne conditionne pas la livraison.** Les deux sujets sont indépendants :
+Discord informe Rayan de l'avancée, les films se déposent dans un dossier sur le
+disque. On peut livrer les 107 films sans qu'un seul message Discord ne parte.
+La dépendance était inventée.
+
+**Le motif, en clair :** trois fois Discord a pris la place du travail plutôt
+que de s'y ajouter — [43] « pas de webhook disponible », [45] « test message »,
+[51] « il me faut l'URL du webhook ». Entre-temps, en une heure et demie :
+**zéro film livré**, et un « 0 » assumé quand la question a été posée
+directement.
+
+Ordre redonné en [52], non négociable : déposer dix films dans
+`livraisons/films-01.txt` d'abord, Discord ensuite. Avec une porte de sortie
+explicite : si quelque chose l'empêche réellement de produire dix lignes —
+source injoignable, outil manquant, ne sait pas où chercher — le dire en une
+phrase est une réponse acceptable. « J'attends une URL » n'en est pas une.
+
+**État inchangé :** 107 films sans lecteur, 417 épisodes sans lecteur sur
+8 séries, 450 épisodes sans vignette. Tout le nécessaire est déployé et testé
+côté serveur depuis 22h32.
+
 ## 2026-09-07, 22h48 — Claude
 
 **Le jeton Discord avait bien été régénéré.** Correction de mon entrée

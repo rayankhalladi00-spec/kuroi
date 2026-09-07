@@ -146,6 +146,19 @@ CREATE TABLE IF NOT EXISTS episode_sources (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Les memes lecteurs de secours, mais pour un titre sans episode : un film.
+-- Sans cette table, un film n'avait qu'un seul lecteur, et le jour ou celui-la
+-- cessait de repondre le film devenait injouable — alors qu'un episode de
+-- serie, lui, pouvait basculer sur un autre.
+CREATE TABLE IF NOT EXISTS content_sources (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  content_id INTEGER NOT NULL REFERENCES content(id) ON DELETE CASCADE,
+  label      TEXT,
+  url        TEXT NOT NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Suivi de visionnage. Une ligne par membre et par titre vu :
 --  * un film ou une serie sans episode  -> episode_id NULL
 --  * un episode precis                  -> episode_id renseigne

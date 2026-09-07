@@ -1314,6 +1314,54 @@ async function waitForServer(proc) {
       check('un autre épisode garde ses propres lecteurs',
         groupes[1].numero === 2 && groupes[1].urls.length === 1,
         JSON.stringify(groupes[1]));
+
+      // Un film n'a pas d'episode : l'import le refusait purement et simplement,
+      // et les 107 films du catalogue n'avaient aucun moyen d'etre servis.
+      // Son lecteur principal vit dans content.video_url, ses secours dans
+      // content_sources.
+      const { appliquerFilm } = require('./appliquer-lecteurs');
+      const { db } = require('../db');
+      db.prepare("INSERT INTO content (type, title) VALUES ('film', ?)").run('Film à lecteurs');
+      const film = db
+        .prepare("SELECT id, title, type FROM content WHERE title = 'Film à lecteurs'")
+        .get();
+
+      const lignes = [
+        { saison: 1, numero: 1, url: 'https://a.tld/film' },
+        { saison: 1, numero: 1, url: 'https://b.tld/film' },
+        { saison: 1, numero: 1, url: 'https://a.tld/film' },
+      ];
+
+      const blanc = appliquerFilm(film, lignes, { essai: true });
+      check('l’essai à blanc d’un film n’écrit rien',
+        db.prepare('SELECT video_url FROM content WHERE id = ?').get(film.id).video_url === null &&
+          blanc.poses === 1 && blanc.sources === 1,
+        JSON.stringify(blanc));
+
+      const vrai = appliquerFilm(film, lignes, {});
+      check('le premier lecteur du film devient le principal',
+        db.prepare('SELECT video_url FROM content WHERE id = ?').get(film.id).video_url ===
+          'https://a.tld/film');
+      const secoursFilm = db
+        .prepare('SELECT url FROM content_sources WHERE content_id = ? ORDER BY position')
+        .all(film.id);
+      check('les suivants deviennent ses lecteurs de secours',
+        secoursFilm.length === 1 && secoursFilm[0].url === 'https://b.tld/film',
+        JSON.stringify(secoursFilm));
+      check('la même adresse répétée n’est pas ajoutée deux fois',
+        vrai.sources === 1, JSON.stringify(vrai));
+
+      const relance = appliquerFilm(film, lignes, {});
+      check('relancer un film ne duplique aucun lecteur',
+        relance.poses === 0 && relance.sources === 0 &&
+          db.prepare('SELECT COUNT(*) c FROM content_sources WHERE content_id = ?').get(film.id)
+            .c === 1,
+        JSON.stringify(relance));
+
+      db.prepare('DELETE FROM content WHERE id = ?').run(film.id);
+      check('supprimer le film emporte ses lecteurs de secours',
+        db.prepare('SELECT COUNT(*) c FROM content_sources WHERE content_id = ?').get(film.id)
+          .c === 0);
     }
 
     console.log('\n— Import des vignettes d’épisode');

@@ -43,6 +43,11 @@ const listSources = db.prepare(
   'SELECT id, label, url FROM episode_sources WHERE episode_id = ? ORDER BY position, id'
 );
 
+// Un film n'a pas d'episode : ses lecteurs de secours pendent au titre.
+const listSourcesTitre = db.prepare(
+  'SELECT id, label, url FROM content_sources WHERE content_id = ? ORDER BY position, id'
+);
+
 const listEpisodes = db.prepare(
   `SELECT id, season, number, title, synopsis, thumbnail_url, video_url
    FROM episodes WHERE content_id = ? ORDER BY season, number`
@@ -57,6 +62,14 @@ function decorate(item, favIds, seen, withEpisodes = false, currentUserId = null
   item.player = playerKind(item.video_url);
   item.favorite = favIds.has(item.id);
   item.watched = seen.contents.has(item.id);
+
+  // La page de lecture lit « sources » sur sa cible : l'episode pour une serie,
+  // le titre lui-meme pour un film. Sans cette ligne, un film restait a un seul
+  // lecteur et le selecteur ne s'affichait jamais.
+  // Chaque source porte son propre type de lecteur, comme pour un episode :
+  // un film peut melanger un fichier video et des lecteurs externes.
+  if (item.type !== 'serie')
+    item.sources = listSourcesTitre.all(item.id).map((s) => ({ ...s, player: playerKind(s.url) }));
 
   if (item.type === 'serie') {
     // Le catalogue n'a besoin que du décompte ; la fiche, de la liste complète.

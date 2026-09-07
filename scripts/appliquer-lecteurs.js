@@ -162,6 +162,56 @@ function grouper(entrees) {
   return [...groupes.values()];
 }
 
+// Un film n'a pas d'episode : son lecteur principal vit dans content.video_url
+// et ses secours dans content_sources. Les numeros presents dans le fichier ne
+// servent alors qu'a donner l'ordre des lecteurs.
+function appliquerFilm(film, entrees, options) {
+  const poser = db.prepare('UPDATE content SET video_url = ? WHERE id = ?');
+  const sourceExiste = db.prepare(
+    'SELECT id FROM content_sources WHERE content_id = ? AND url = ?'
+  );
+  const ajouterSource = db.prepare(
+    'INSERT INTO content_sources (content_id, label, url, position) VALUES (?, ?, ?, ?)'
+  );
+  const rangSuivant = db.prepare(
+    'SELECT COALESCE(MAX(position), 0) + 1 AS rang FROM content_sources WHERE content_id = ?'
+  );
+
+  const bilan = { poses: 0, inchanges: 0, absents: [], sources: 0 };
+
+  const urls = [];
+  for (const e of entrees) if (!urls.includes(e.url)) urls.push(e.url);
+  if (!urls.length) return bilan;
+
+  const principal = options.source ? null : urls[0];
+  const secours = options.source ? urls : urls.slice(1);
+  let enPlace = db.prepare('SELECT video_url FROM content WHERE id = ?').get(film.id).video_url;
+
+  if (principal !== null) {
+    if (enPlace === principal) {
+      bilan.inchanges++;
+    } else if (enPlace && !options.remplacer) {
+      bilan.inchanges++;
+    } else {
+      if (!options.essai) poser.run(principal, film.id);
+      bilan.poses++;
+      enPlace = principal;
+    }
+  }
+
+  for (const url of secours) {
+    if (url === enPlace) continue;
+    if (sourceExiste.get(film.id, url)) {
+      bilan.inchanges++;
+      continue;
+    }
+    if (!options.essai) ajouterSource.run(film.id, null, url, rangSuivant.get(film.id).rang);
+    bilan.sources++;
+  }
+
+  return bilan;
+}
+
 function appliquer(serie, entrees, options) {
   const trouverEp = db.prepare(
     'SELECT id, season, number, video_url FROM episodes WHERE content_id = ? AND season = ? AND number = ?'
@@ -291,8 +341,8 @@ function main() {
       introuvables.push(`${titre} — ${e.message}`);
       continue;
     }
-    if (serie.type !== 'serie') {
-      introuvables.push(`${serie.title} — ce n’est pas une série, elle n’a pas d’épisodes`);
+    if (serie.type !== 'serie' && serie.type !== 'film') {
+      introuvables.push(`${serie.title} — ni une série ni un film, on n’y pose pas de lecteur`);
       continue;
     }
     aFaire.push({ serie, entrees: section.entrees });
@@ -306,7 +356,10 @@ function main() {
   const cumul = { poses: 0, inchanges: 0, sources: 0, absents: 0 };
   console.log('');
   for (const { serie, entrees } of aFaire) {
-    const bilan = appliquer(serie, entrees, options);
+    const bilan =
+      serie.type === 'film'
+        ? appliquerFilm(serie, entrees, options)
+        : appliquer(serie, entrees, options);
     cumul.poses += bilan.poses;
     cumul.inchanges += bilan.inchanges;
     cumul.sources += bilan.sources;
@@ -337,4 +390,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { lireLigne, lireFichier, trouverSerie, appliquer, grouper };
+module.exports = { lireLigne, lireFichier, trouverSerie, appliquer, appliquerFilm, grouper };

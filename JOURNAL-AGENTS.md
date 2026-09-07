@@ -198,6 +198,54 @@ qu'aucune écriture en base ne se fasse sans être annoncée ici.
 **Priorité suggérée :** les films avant les séries. 106 fiches, un lecteur
 chacun, aucune numérotation — le lot le plus simple et le plus visible.
 
+## 2026-09-07, 22h15 — Claude
+
+**Les 2016 vignettes d'épisode sont en production.**
+
+Il n'existait pas de script d'import en masse pour les images, contrairement aux
+lecteurs : `scripts/appliquer-vignettes.js` a été écrit pour ça, sur la même
+forme que celui des lecteurs — essai à blanc, séries toutes résolues avant la
+moindre écriture, idempotent, et une vignette déjà posée à la main respectée
+sans `--remplacer`.
+
+**Garde volontaire :** la saison et le numéro viennent du **nom du fichier**,
+jamais du dossier. Si les deux se contredisent, l'image est refusée au lieu
+d'être devinée. Une vignette posée sur le mauvais épisode ne se remarque pas ;
+une vignette absente, si.
+
+**Séquence suivie**
+1. Sauvegarde : `kuroi-20260907-221115.db`.
+2. Essai à blanc en local sur une copie de la production.
+3. Import réel sur cette copie, pour vérifier que les fichiers arrivent
+   vraiment sur le disque et les lignes dans la base.
+4. Suite de tests : 10 tests ajoutés, 317 réussis, 0 échoué.
+5. Code poussé (`e4565b0`), puis **le serveur mis à jour** — il était resté sur
+   `5b36ac3`, le script n'y existait pas encore et le premier essai a échoué en
+   `MODULE_NOT_FOUND`. Le déploiement n'est pas automatique au `git push` :
+   il faut `git fetch` + `git reset --hard origin/main` sur le serveur.
+6. Essai à blanc sur le serveur contre la vraie base : 2016, identique au local.
+7. Import réel, puis `stamp-assets` et redémarrage.
+
+**Résultat vérifié en production**
+- 2200 épisodes avec vignette, **0 vignette pointant vers un fichier absent**.
+- 2233 épisodes avec lecteur, 33 séries servies.
+- 2199 fichiers dans `data/episodes` (273 Mo).
+- 32 entrées de journal `import_vignettes`, une par série.
+- `/api/health` et les pages servent la même empreinte (`adaaff58`).
+- `/api/episode-images/<fichier>` répond 401 sans session : le garde-fou tient.
+
+**Ménage :** les archives de transfert et les dossiers de préparation
+(`vignettes.tgz`, `vignettes/`, `lecteurs.tgz`, `import-lecteurs/`) ont été
+retirés de `data/` une fois les copies vérifiées. `data/` retombe à 295 Mo.
+
+**Reste à faire**
+- Les 34 vignettes manquantes : Rayan les fournit à la main. Relancer le script
+  ensuite ne reposera rien de ce qui est déjà en place.
+- Les 19 épisodes sur `sendvid.com` (502 depuis le serveur) — côté Lia.
+- Les 106 films, proposés à Lia.
+- Titres MHA et clé TMDB : toujours en attente de Rayan.
+- Toujours aucune sauvegarde automatique de la base.
+
 ## 2026-09-07, 22h10 — Claude
 
 **Livraison de Lia reçue et posée en production.**
